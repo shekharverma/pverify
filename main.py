@@ -13,10 +13,6 @@ PVERIFY_BASE_URL = os.getenv("PVERIFY_BASE_URL")
 
 @app.post("/api/check-eligibility")
 async def check_eligibility(payload: dict):
-    print("PVERIFY_API_TOKEN ", PVERIFY_API_TOKEN)
-    print("PVERIFY_CLIENT_ID ", PVERIFY_CLIENT_ID)
-    print("PVERIFY_BASE_URL ", PVERIFY_BASE_URL)
-
     url = f"{PVERIFY_BASE_URL}/EligibilityInquiry"
     headers = {
         "Authorization": f"Bearer {PVERIFY_API_TOKEN}",
