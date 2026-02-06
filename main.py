@@ -17,6 +17,12 @@ TOKEN_URL = os.getenv("PVERIFY_TOKEN_URL")
 API_CLIENT_ID = os.getenv("PVERIFY_API_CLIENT_ID")
 BASE_URL = os.getenv("PVERIFY_BASE_URL")
 
+OAUTH_CLIENT_ID='2f153525-799d-4983-9a10-dfc6a2f8f48c'
+OAUTH_CLIENT_SECRET='HY8wCKHNxq9fviBfeLhtUE98PBew'
+API_CLIENT_ID='2f153525-799d-4983-9a10-dfc6a2f8f48c'
+BASE_URL='https://api.pverify.com/API'
+TOKEN_URL='https://api.pverify.com/Token'
+
 # Token cache
 access_token = None
 token_expiry = 0
