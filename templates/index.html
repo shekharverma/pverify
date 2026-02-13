@@ -3,84 +3,303 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <title>pVerify Eligibility Portal</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
-        body { background-color: #f4f7f6; }
-        .form-label { font-weight: 600; color: #495057; }
-        .card { border-radius: 12px; border: none; }
-        .btn-primary { background-color: #0056b3; border: none; }
+        body { 
+            background: #f0f2f5; 
+            font-family: 'Inter', sans-serif; 
+            color: #333;
+        }
+        
+        .container { max-width: 1000px; }
+        .card { 
+            border: none; 
+            border-radius: 12px; 
+            box-shadow: 0 4px 20px rgba(0,0,0,0.06); 
+            background: #fff;
+            overflow: hidden;
+        }
+        .card-header-primary {
+            background: linear-gradient(135deg, #0d6efd 0%, #0043a8 100%);
+            color: white;
+            font-weight: 600;
+            padding: 1.2rem;
+        }
+        
+        .card-header-light {
+            background-color: #e7f1ff; 
+            color: #004085; 
+            font-weight: 600;
+            padding: 1rem;
+            border-bottom: 1px solid #cce5ff;
+        }
+
+        .info-box { 
+            background: #fff; 
+            border-radius: 10px; 
+            padding: 15px 20px; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.03); 
+            height: 100%; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center; 
+            border-left: 4px solid #0d6efd;
+        }
+        .info-label { font-size: 0.75rem; color: #888; text-transform: uppercase; font-weight: 600; margin-bottom: 5px; }
+        .info-value { font-size: 1.25rem; font-weight: 700; color: #2c3e50; }
+        .status-active { color: #198754; }
+
+        .table-custom { margin-bottom: 0; }
+        .table-custom th {
+            background-color: #f8fbff;
+            color: #495057;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            letter-spacing: 0.5px;
+            vertical-align: middle;
+        }
+        .table-custom td {
+            vertical-align: middle;
+            font-weight: 500;
+            color: #2c3e50;
+            font-size: 0.95rem;
+        }
+        .value-primary { color: #0d6efd; font-weight: 700; }
+        .value-fraction { font-family: 'Consolas', monospace; color: #333; font-weight: 600; }
+
+        .json-container {
+            background-color: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 0.85rem;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+            border: 1px solid #ddd;
+        }
+        .json-key { color: #9cdcfe; }
+        .json-string { color: #ce9178; }
+        .json-number { color: #b5cea8; }
+        .json-boolean { color: #569cd6; }
+        .json-null { color: #569cd6; }
     </style>
 </head>
 <body>
 
 <div class="container py-5">
-    <div class="row justify-content-center">
-        <div class="col-lg-10">
-            <div class="card shadow-lg">
-                <div class="card-header bg-primary text-white p-3">
-                    <h4 class="mb-0">Patient Insurance Verification</h4>
+    
+    <div class="card mb-5">
+        <div class="card-header card-header-primary">
+            <h5 class="mb-0">Patient Eligibility Search</h5>
+        </div>
+        <div class="card-body p-4">
+            <form action="/" method="POST" id="verifyForm">
+                
+                <div class="row g-3 mb-4">
+                    <div class="col-md-3">
+                        <label class="form-label">First Name</label>
+                        <input type="text" name="firstName" class="form-control" value="{{ form_data.firstName if form_data else '' }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Last Name</label>
+                        <input type="text" name="lastName" class="form-control" value="{{ form_data.lastName if form_data else '' }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Date of Birth</label>
+                        <input type="text" name="dob" class="form-control" placeholder="MM/DD/YYYY" value="{{ form_data.dob if form_data else '' }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Member ID <span class="text-danger">*</span></label>
+                        <input type="text" name="memberId" class="form-control" required value="{{ form_data.memberId if form_data else '' }}">
+                    </div>
                 </div>
-                <div class="card-body p-4">
-                    <form action="/verify" method="POST">
-                        
-                        <div class="row mb-4">
-                            <h5 class="text-primary border-bottom pb-2">Provider Information</h5>
-                            <div class="col-md-6">
-                                <label class="form-label">Provider Last Name / Facility</label>
-                                <input type="text" name="providerLastName" class="form-control" placeholder="e.g., Corium Ventures Pllc" required>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">NPI Number</label>
-                                <input type="text" name="npi" class="form-control" placeholder="10-digit NPI" required>
-                            </div>
-                        </div>
 
-                        <div class="row mb-4">
-                            <h5 class="text-primary border-bottom pb-2">Subscriber (Patient) Information</h5>
-                            <div class="col-md-3">
-                                <label class="form-label">First Name</label>
-                                <input type="text" name="firstName" class="form-control" placeholder="First Name" required>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Last Name</label>
-                                <input type="text" name="lastName" class="form-control" placeholder="Last Name" required>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Date of Birth</label>
-                                <input type="text" name="dob" class="form-control" placeholder="MM/DD/YYYY" required>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Member ID</label>
-                                <input type="text" name="memberId" class="form-control" placeholder="Insurance ID" required>
-                            </div>
-                        </div>
+                <div class="mb-4">
+                    <label class="form-label">Select Payer</label>
+                    <input class="form-control form-control-lg" list="payersDataList" id="payerDisplayInput" placeholder="Start typing payer name..." autocomplete="off" required value="{{ form_data.get('payerDisplayInput', '') }}">
+                    <input type="hidden" name="payerCode" id="hiddenPayerCode" value="{{ form_data.payerCode if form_data else '' }}">
+                    <datalist id="payersDataList">
+                        {% for payer in payers %}
+                            <option value="{{ payer.payerName }} - {{ payer.payerCode }}"></option>
+                        {% endfor %}
+                    </datalist>
+                    <div class="mt-2 text-muted small">
+                        Code: <span id="selectedCodeSpan" class="fw-bold text-primary">{{ form_data.payerCode if form_data else 'None' }}</span>
+                    </div>
+                </div>
 
-                        <div class="row mb-4">
-                            <h5 class="text-primary border-bottom pb-2">Policy Details</h5>
-                            <div class="col-md-4">
-                                <label class="form-label">Payer Code</label>
-                                <input type="text" name="payerCode" class="form-control" placeholder="e.g., 00220" required>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Service Date</label>
-                                <input type="text" name="dos" class="form-control" value="02/04/2026">
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Location (State)</label>
-                                <input type="text" name="location" class="form-control" placeholder="e.g., TX" maxlength="2" required>
-                            </div>
-                        </div>
+                {% if not data %}
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-primary btn-lg">Verify Eligibility</button>
+                </div>
+                {% endif %}
 
-                        <div class="d-grid gap-2 mt-4">
-                            <button type="submit" class="btn btn-primary btn-lg">Verify Eligibility</button>
+            </form>
+        </div>
+    </div>
+
+    {% if data %}
+    
+        {% if data.error %}
+            <div class="alert alert-danger shadow-sm border-0">{{ data.error }}</div>
+            <div class="text-center mt-3"><a href="/" class="btn btn-outline-secondary px-4">Reset Form</a></div>
+        {% else %}
+        
+        <div class="row g-4 mb-4">
+            <div class="col-md-4">
+                <div class="info-box" style="border-left-color: #2dce89;">
+                    <div class="info-label">Current Status</div>
+                    <div class="info-value status-active">● {{ data.status }}</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="info-box">
+                    <div class="info-label">Insurance Payer</div>
+                    <div class="info-value">{{ data.payer_name }}</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="info-box" style="border-left-color: #6f42c1;">
+                    <div class="info-label">Policy Type</div>
+                    <div class="info-value text-secondary">{{ data.policy_type if data.policy_type is not none else '' }}</div>
+                    
+                    {% if data.is_hmo %}
+                        <div class="mt-2 text-danger fw-bold border border-danger rounded px-2 py-1 bg-white text-center" style="font-size: 0.85rem;">
+                            ⚠️ PATIENT HAS HMO
                         </div>
-                    </form>
+                    {% endif %}
                 </div>
             </div>
         </div>
-    </div>
+
+        <div class="card mb-5">
+            <div class="card-header card-header-light">
+                <h5 class="mb-0">Benefit & Service Summary (In-Network)</h5>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-custom table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th style="width: 40%;">Benefit Category</th>
+                            <th style="width: 30%;">Amount / Value</th>
+                            <th style="width: 30%;">Description / Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Specialist Office Co-Pay</td>
+                            <td class="value-primary">
+                                {% if data.benefits.specialist.copay is not none %}${{ data.benefits.specialist.copay }}{% endif %}
+                            </td>
+                            <td>{{ data.benefits.specialist.desc }}</td>
+                        </tr>
+                        <tr>
+                            <td>Specialist Office Co-Ins</td>
+                            <td class="value-primary">
+                                {% if data.benefits.specialist.coins is not none %}{{ data.benefits.specialist.coins }}{% endif %}
+                            </td>
+                            <td>{{ data.benefits.specialist.desc }}</td>
+                        </tr>
+                        <tr>
+                            <td>Surgical Services Co-Ins</td>
+                            <td class="value-primary">
+                                {% if data.benefits.surgical.coins is not none %}{{ data.benefits.surgical.coins }}{% endif %}
+                            </td>
+                            <td>{{ data.benefits.surgical.desc }}</td>
+                        </tr>
+                        
+                        <tr class="table-light">
+                            <td><strong>Total Individual Deductible</strong><br><span class="small text-muted">(Remaining / Total)</span></td>
+                            <td class="value-fraction text-danger">
+                                {{ data.benefits.oop.indiv_deduct_rem }} / {{ data.benefits.oop.indiv_deduct }}
+                            </td>
+                            <td>Individual Plan Deductible</td>
+                        </tr>
+
+                        <tr class="table-light">
+                            <td><strong>Total Individual OOP</strong><br><span class="small text-muted">(Remaining / Total)</span></td>
+                            <td class="value-fraction text-success">
+                                {{ data.benefits.oop.indiv_oop_rem }} / {{ data.benefits.oop.indiv_oop }}
+                            </td>
+                            <td>Individual Out-of-Pocket Max</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-12">
+                <h6 class="fw-bold text-secondary mb-2">API JSON Response</h6>
+                <div class="json-container" id="jsonOutput"></div>
+            </div>
+        </div>
+
+        <div class="text-center mt-4 mb-5">
+            <a href="/" class="btn btn-outline-dark px-5 py-2 fw-bold">Start New Verification</a>
+        </div>
+
+        {% endif %}
+    {% endif %}
+
 </div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    const payerInput = document.getElementById('payerDisplayInput');
+    if (payerInput) {
+        payerInput.addEventListener('input', function() {
+            const val = this.value;
+            const hiddenInput = document.getElementById('hiddenPayerCode');
+            const previewSpan = document.getElementById('selectedCodeSpan');
+
+            if (val && val.includes(' - ')) {
+                const parts = val.split(' - ');
+                const code = parts[parts.length - 1]; 
+                hiddenInput.value = code;
+                previewSpan.innerText = code;
+                previewSpan.className = "fw-bold text-success";
+            } else {
+                hiddenInput.value = val; 
+                previewSpan.innerText = val ? val : "None";
+                previewSpan.className = "fw-bold text-muted";
+            }
+        });
+    }
+
+    function syntaxHighlight(json) {
+        if (typeof json !== 'string') {
+            json = JSON.stringify(json, undefined, 2);
+        }
+        json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+            var cls = 'json-number';
+            if (/^"/.test(match)) {
+                if (/:$/.test(match)) {
+                    cls = 'json-key';
+                } else {
+                    cls = 'json-string';
+                }
+            } else if (/true|false/.test(match)) {
+                cls = 'json-boolean';
+            } else if (/null/.test(match)) {
+                cls = 'json-null';
+            }
+            return '<span class="' + cls + '">' + match + '</span>';
+        });
+    }
+
+    {% if data and data.full_json %}
+        const rawJson = {{ data.full_json | tojson }};
+        document.getElementById('jsonOutput').innerHTML = syntaxHighlight(rawJson);
+    {% endif %}
+</script>
 
 </body>
 </html>
