@@ -199,13 +199,13 @@
                             </td>
                             <td>{{ data.benefits.specialist.desc }}</td>
                         </tr>
-                        <tr>
+                        <!-- <tr>
                             <td>Specialist Office Co-Ins</td>
                             <td class="value-primary">
                                 {% if data.benefits.specialist.coins is not none %}{{ data.benefits.specialist.coins }}{% endif %}
                             </td>
                             <td>{{ data.benefits.specialist.desc }}</td>
-                        </tr>
+                        </tr> -->
                         <tr>
                             <td>Surgical Services Co-Ins</td>
                             <td class="value-primary">
@@ -215,17 +215,17 @@
                         </tr>
                         
                         <tr class="table-light">
-                            <td><strong>Total Individual Deductible</strong><br><span class="small text-muted">(Remaining / Total)</span></td>
+                            <td><strong>Induidual deductible remaining in net</strong><br><span class="small text-muted"></span></td>
                             <td class="value-fraction text-danger">
-                                {{ data.benefits.oop.indiv_deduct_rem }} / {{ data.benefits.oop.indiv_deduct }}
+                                {{ data.benefits.oop.indiv_deduct_rem }}
                             </td>
                             <td>Individual Plan Deductible</td>
                         </tr>
 
                         <tr class="table-light">
-                            <td><strong>Total Individual OOP</strong><br><span class="small text-muted">(Remaining / Total)</span></td>
+                            <td><strong>Induidual OOP remaining in net</strong><br><span class="small text-muted"></span></td>
                             <td class="value-fraction text-success">
-                                {{ data.benefits.oop.indiv_oop_rem }} / {{ data.benefits.oop.indiv_oop }}
+                                {{ data.benefits.oop.indiv_oop_rem }}
                             </td>
                             <td>Individual Out-of-Pocket Max</td>
                         </tr>
