@@ -1,9 +1,31 @@
 from flask import Flask, render_template, request
 import requests
 import json
+import os
+import urllib3
 from datetime import datetime
 
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+# Load .env from app directory so ELIGIBILITY_API_URL can be set without supervisor
+_env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+if os.path.isfile(_env_path):
+    with open(_env_path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, _, v = line.partition("=")
+                k, v = k.strip(), v.strip().strip('"').strip("'")
+                if k and k not in os.environ:
+                    os.environ[k] = v
+
 app = Flask(__name__)
+
+# Eligibility API: .env or env (e.g. supervisor), else default
+ELIGIBILITY_API_URL = os.environ.get(
+    "ELIGIBILITY_API_URL",
+    "https://api.insuranceclaim.urtestsite.com/api/check-eligibility"
+)
 
 # ================= LOAD PAYERS =================
 def load_payers():
@@ -19,19 +41,19 @@ def load_payers():
 def index():
     payers = load_payers()
     formatted_data = None
-    form_data = {} 
+    form_data = {}
 
     if request.method == 'POST':
         form_data = request.form
         form_data_dict = form_data.to_dict()
-        form_data_dict['payerDisplayInput'] = request.form.get('payerDisplayInput', '') 
+        form_data_dict['payerDisplayInput'] = request.form.get('payerDisplayInput', '')
 
         try:
             static_provider_last = "Corium Ventures Pllc"
             static_npi = "1346553120"
-            static_dos = datetime.now().strftime("%m/%d/%Y") 
+            static_dos = datetime.now().strftime("%m/%d/%Y")
             static_is_sub_patient = True
-            
+
             payload = {
                 "PayerCode": request.form.get("payerCode"),
                 "DOS_StartDate": static_dos,
@@ -49,19 +71,17 @@ def index():
                     "DOB": request.form.get("dob")
                 }
             }
-
-            response = requests.post("http://127.0.0.1:8000/api/check-eligibility", json=payload)
-            
+            response = requests.post(ELIGIBILITY_API_URL, json=payload, verify=False)
             if response.status_code == 200:
                 api_data = response.json()
                 summary = api_data.get("PlanCoverageSummary") or {}
-                dme = api_data.get("DMESummary") or {} 
+                dme = api_data.get("DMESummary") or {}
                 oop = api_data.get("HBPC_Deductible_OOP_Summary") or {}
                 services = api_data.get("ServiceDetails") or []
 
                 # Default values
                 plan_coins = (dme.get("CoInsInNet") or {}).get("Value")
-                
+
                 # Helper to format percentage
                 def fmt_percent(val):
                     if val is None: return None
@@ -83,14 +103,14 @@ def index():
                     details = s.get("EligibilityDetails") or []
                     for d in details:
                         benefit_type = d.get("EligibilityOrBenefit")
-                        
+
                         # --- Specialist / Professional ---
                         if "professional" in name or "office" in name:
                             if benefit_type == "Co-Payment":
                                 val = d.get("MonetaryAmount")
-                                if val is not None: 
+                                if val is not None:
                                     spec_data["copay"] = val
-                            
+
                             if benefit_type == "Co-Insurance":
                                 val = d.get("Percent")
                                 if val is not None:
@@ -98,20 +118,20 @@ def index():
 
                             auth = d.get("AuthorizationOrCertificationRequired")
                             if auth: spec_data["auth"] = auth
-                        
+
                         # --- Surgical ---
                         if "surgery" in name or "surgical" in name:
                             if benefit_type == "Co-Insurance":
                                 val = d.get("Percent")
                                 if val is not None:
                                     surg_data["coins"] = fmt_percent(val)
-                            
+
                             auth = d.get("AuthorizationOrCertificationRequired")
                             if auth: surg_data["auth"] = auth
 
                 formatted_data = {
                     "full_json": api_data,
-                    "is_hmo": api_data.get("IsHMOPlan"), 
+                    "is_hmo": api_data.get("IsHMOPlan"),
                     "status": summary.get("Status"),
                     "payer_name": api_data.get("PayerName", "United Healthcare"),
                     "ver_type": api_data.get("VerificationType", "Subscriber Verification"),
@@ -140,10 +160,11 @@ def index():
 
         except Exception as e:
             formatted_data = {"error": f"System Error: {str(e)}"}
-        
+
         return render_template("index.html", payers=payers, data=formatted_data, form_data=form_data_dict)
 
     return render_template("index.html", payers=payers, data=None, form_data={})
 
 if __name__ == "__main__":
-    app.run(port=5001, debug=True)
+    app.run(host="0.0.0.0", port=8081)
+

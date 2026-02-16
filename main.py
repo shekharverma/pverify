@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 import requests
 import time
 
@@ -15,6 +16,21 @@ SUMMARY_URL = 'https://api.pverify.com/api/EligibilitySummary'
 access_token = None
 token_expiry = 0
 
+
+origins = [
+    "https://insuranceclaim.urtestsite.com",  # Your Flask frontend domain
+    "http://localhost:5001",                # Local Flask (usually 5000)
+    "http://127.0.0.1:5001/",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,             # Allows specific domains
+    allow_credentials=True,
+    allow_methods=["*"],               # Allows all methods (GET, POST, etc.)
+    allow_headers=["*"],               # Allows all headers
+)
+# ================= TOKEN =================
 
 # ================= TOKEN =================
 def get_access_token():
@@ -98,3 +114,4 @@ async def check_eligibility(payload: dict):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
