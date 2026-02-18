@@ -58,7 +58,7 @@ def index():
         try:
             # YOUR ORIGINAL STATIC DATA
             static_provider_last = "Corium Ventures Pllc"
-            static_npi = "1770098261"
+            static_npi = "1346553120"
             static_dos = datetime.now().strftime("%m/%d/%Y")
             static_is_sub_patient = True
 
