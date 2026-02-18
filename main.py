@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 import requests
 import time
 from fastapi.middleware.cors import CORSMiddleware
@@ -110,3 +111,4 @@ async def check_eligibility(payload: dict):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+

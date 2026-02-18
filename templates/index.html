@@ -4,119 +4,68 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>pVerify Eligibility Portal</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
-        body { 
-            background: #f0f2f5; 
-            font-family: 'Inter', sans-serif; 
-            color: #333;
-        }
-        
+        body { background: #f0f2f5; font-family: 'Inter', sans-serif; color: #333; }
         .container { max-width: 1000px; }
-        .card { 
-            border: none; 
-            border-radius: 12px; 
-            box-shadow: 0 4px 20px rgba(0,0,0,0.06); 
-            background: #fff;
-            overflow: hidden;
-        }
-        .card-header-primary {
-            background: linear-gradient(135deg, #0d6efd 0%, #0043a8 100%);
-            color: white;
-            font-weight: 600;
-            padding: 1.2rem;
-        }
-        
-        .card-header-light {
-            background-color: #e7f1ff; 
-            color: #004085; 
-            font-weight: 600;
-            padding: 1rem;
-            border-bottom: 1px solid #cce5ff;
-        }
-
-        .info-box { 
-            background: #fff; 
-            border-radius: 10px; 
-            padding: 15px 20px; 
-            box-shadow: 0 2px 10px rgba(0,0,0,0.03); 
-            height: 100%; 
-            display: flex; 
-            flex-direction: column; 
-            justify-content: center; 
-            border-left: 4px solid #0d6efd;
-        }
+        .card { border: none; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.06); background: #fff; overflow: hidden; }
+        .card-header-primary { background: linear-gradient(135deg, #0d6efd 0%, #0043a8 100%); color: white; font-weight: 600; padding: 1.2rem; }
+        .info-box { background: #fff; border-radius: 10px; padding: 15px 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.03); height: 100%; display: flex; flex-direction: column; justify-content: center; border-left: 4px solid #0d6efd; }
         .info-label { font-size: 0.75rem; color: #888; text-transform: uppercase; font-weight: 600; margin-bottom: 5px; }
         .info-value { font-size: 1.25rem; font-weight: 700; color: #2c3e50; }
         .status-active { color: #198754; }
-
-        .table-custom { margin-bottom: 0; }
-        .table-custom th {
-            background-color: #f8fbff;
-            color: #495057;
-            font-weight: 600;
-            text-transform: uppercase;
-            font-size: 0.8rem;
-            letter-spacing: 0.5px;
-            vertical-align: middle;
-        }
-        .table-custom td {
-            vertical-align: middle;
-            font-weight: 500;
-            color: #2c3e50;
-            font-size: 0.95rem;
-        }
-        .value-primary { color: #0d6efd; font-weight: 700; }
-        .value-fraction { font-family: 'Consolas', monospace; color: #333; font-weight: 600; }
-
-        .json-container {
-            background-color: #1e1e1e;
-            color: #d4d4d4;
-            padding: 20px;
-            border-radius: 8px;
-            font-family: monospace;
-            font-size: 0.85rem;
-            max-height: 400px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-            word-break: break-word;
-            border: 1px solid #ddd;
-        }
-        .json-key { color: #9cdcfe; }
-        .json-string { color: #ce9178; }
-        .json-number { color: #b5cea8; }
-        .json-boolean { color: #569cd6; }
-        .json-null { color: #569cd6; }
+        .json-container { background-color: #1e1e1e; color: #d4d4d4; padding: 20px; border-radius: 8px; font-family: monospace; font-size: 0.85rem; max-height: 400px; overflow-y: auto; white-space: pre-wrap; word-break: break-word; border: 1px solid #ddd; }
+        
+        /* New Styles for PDF Upload Area */
+        .upload-section { border: 2px dashed #dee2e6; border-radius: 10px; background: #f8f9fa; transition: 0.3s; }
+        .upload-section:hover { border-color: #0d6efd; background: #f1f4f9; }
+        .loading-spinner { display: none; margin-left: 10px; }
     </style>
 </head>
 <body>
 
 <div class="container py-5">
-    
     <div class="card mb-5">
         <div class="card-header card-header-primary">
-            <h5 class="mb-0">Patient Eligibility Search</h5>
+            <h5 class="mb-0 text-center">Patient Eligibility Search</h5>
         </div>
+        
         <div class="card-body p-4">
+            <div class="upload-section text-center p-4 mb-4">
+                <!-- <h6 class="text-muted small fw-bold text-uppercase mb-3">AI Smart Autofill</h6> -->
+                <button type="button" class="btn btn-outline-primary fw-bold" onclick="document.getElementById('pdfInput').click()">
+                    <i class="bi bi-file-earmark-pdf-fill me-2"></i>UPLOAD REFERRAL FILE
+                </button>
+                <input type="file" id="pdfInput" accept=".pdf" style="display: none;" onchange="handlePdfUpload(this)">
+                <div class="spinner-border spinner-border-sm text-primary loading-spinner" id="pdfSpinner" role="status"></div>
+                <div id="uploadStatus" class="mt-2 small fw-bold text-primary"></div>
+            </div>
+
+            <div id="pdfDataDisplay" class="mb-4" style="display: none;">
+                <h6 class="fw-bold text-primary mb-2 small text-uppercase">Extracted Data from PDF:</h6>
+                <pre id="extractedJsonOutput" class="json-container" style="max-height: 200px;"></pre>
+                <hr>
+            </div>
+
             <form action="/" method="POST" id="verifyForm">
-                
                 <div class="row g-3 mb-4">
                     <div class="col-md-3">
                         <label class="form-label">First Name</label>
-                        <input type="text" name="firstName" class="form-control" value="{{ form_data.firstName if form_data else '' }}">
+                        <input type="text" name="firstName" id="firstName" class="form-control" value="{{ form_data.firstName if form_data else '' }}">
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">Last Name</label>
-                        <input type="text" name="lastName" class="form-control" value="{{ form_data.lastName if form_data else '' }}">
+                        <input type="text" name="lastName" id="lastName" class="form-control" value="{{ form_data.lastName if form_data else '' }}">
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">Date of Birth</label>
-                        <input type="text" name="dob" class="form-control" placeholder="MM/DD/YYYY" value="{{ form_data.dob if form_data else '' }}">
+                        <input type="text" name="dob" id="dob" class="form-control" placeholder="MM/DD/YYYY" value="{{ form_data.dob if form_data else '' }}">
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">Member ID <span class="text-danger">*</span></label>
-                        <input type="text" name="memberId" class="form-control" required value="{{ form_data.memberId if form_data else '' }}">
+                        <input type="text" name="memberId" id="memberId" class="form-control" required value="{{ form_data.memberId if form_data else '' }}">
                     </div>
                 </div>
 
@@ -125,8 +74,8 @@
                     <input class="form-control form-control-lg" list="payersDataList" id="payerDisplayInput" placeholder="Start typing payer name..." autocomplete="off" required value="{{ form_data.get('payerDisplayInput', '') }}">
                     <input type="hidden" name="payerCode" id="hiddenPayerCode" value="{{ form_data.payerCode if form_data else '' }}">
                     <datalist id="payersDataList">
-                        {% for payer in payers %}
-                            <option value="{{ payer.payerName }} - {{ payer.payerCode }}"></option>
+                        {% for p in payers %}
+                            <option value="{{ p.payerName }} - {{ p.payerCode }}"></option>
                         {% endfor %}
                     </datalist>
                     <div class="mt-2 text-muted small">
@@ -134,131 +83,42 @@
                     </div>
                 </div>
 
-                {% if not data %}
                 <div class="d-grid">
                     <button type="submit" class="btn btn-primary btn-lg">Verify Eligibility</button>
                 </div>
-                {% endif %}
-
             </form>
         </div>
     </div>
 
     {% if data %}
-    
         {% if data.error %}
             <div class="alert alert-danger shadow-sm border-0">{{ data.error }}</div>
-            <div class="text-center mt-3"><a href="/" class="btn btn-outline-secondary px-4">Reset Form</a></div>
         {% else %}
-        
-        <div class="row g-4 mb-4">
-            <div class="col-md-4">
-                <div class="info-box" style="border-left-color: #2dce89;">
-                    <div class="info-label">Current Status</div>
-                    <div class="info-value status-active">● {{ data.status }}</div>
+            <div class="row g-4 mb-4">
+                <div class="col-md-4"><div class="info-box"><div class="info-label">Current Status</div><div class="info-value status-active">● {{ data.status }}</div></div></div>
+                <div class="col-md-4"><div class="info-box"><div class="info-label">Insurance Payer</div><div class="info-value">{{ data.payer_name }}</div></div></div>
+                <div class="col-md-4">
+                    <div class="info-box" style="border-left-color: #6f42c1;">
+                        <div class="info-label">Policy Type</div>
+                        <div class="info-value text-secondary">{{ data.policy_type if data.policy_type is not none else '' }}</div>
+                        {% if data.is_hmo %}<div class="mt-2 text-danger fw-bold border border-danger rounded px-2 py-1 bg-white text-center" style="font-size: 0.85rem;">⚠️ PATIENT HAS HMO</div>{% endif %}
+                    </div>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="info-box">
-                    <div class="info-label">Insurance Payer</div>
-                    <div class="info-value">{{ data.payer_name }}</div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="info-box" style="border-left-color: #6f42c1;">
-                    <div class="info-label">Policy Type</div>
-                    <div class="info-value text-secondary">{{ data.policy_type if data.policy_type is not none else '' }}</div>
-                    
-                    {% if data.is_hmo %}
-                        <div class="mt-2 text-danger fw-bold border border-danger rounded px-2 py-1 bg-white text-center" style="font-size: 0.85rem;">
-                            ⚠️ PATIENT HAS HMO
-                        </div>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-
-        <div class="card mb-5">
-            <div class="card-header card-header-light">
-                <h5 class="mb-0">Benefit & Service Summary (In-Network)</h5>
-            </div>
-            <div class="table-responsive">
-                <table class="table table-custom table-hover align-middle">
-                    <thead>
-                        <tr>
-                            <th style="width: 40%;">Benefit Category</th>
-                            <th style="width: 30%;">Amount / Value</th>
-                            <th style="width: 30%;">Description / Notes</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>Specialist Office Co-Pay</td>
-                            <td class="value-primary">
-                                {% if data.benefits.specialist.copay is not none %}${{ data.benefits.specialist.copay }}{% endif %}
-                            </td>
-                            <td>{{ data.benefits.specialist.desc }}</td>
-                        </tr>
-                        <!-- <tr>
-                            <td>Specialist Office Co-Ins</td>
-                            <td class="value-primary">
-                                {% if data.benefits.specialist.coins is not none %}{{ data.benefits.specialist.coins }}{% endif %}
-                            </td>
-                            <td>{{ data.benefits.specialist.desc }}</td>
-                        </tr> -->
-                        <tr>
-                            <td>Surgical Services Co-Ins</td>
-                            <td class="value-primary">
-                                {% if data.benefits.surgical.coins is not none %}{{ data.benefits.surgical.coins }}{% endif %}
-                            </td>
-                            <td>{{ data.benefits.surgical.desc }}</td>
-                        </tr>
-                        
-                        <tr class="table-light">
-                            <td><strong>Induidual deductible remaining in net</strong><br><span class="small text-muted"></span></td>
-                            <td class="value-fraction text-danger">
-                                {{ data.benefits.oop.indiv_deduct_rem }}
-                            </td>
-                            <td>Individual Plan Deductible</td>
-                        </tr>
-
-                        <tr class="table-light">
-                            <td><strong>Induidual OOP remaining in net</strong><br><span class="small text-muted"></span></td>
-                            <td class="value-fraction text-success">
-                                {{ data.benefits.oop.indiv_oop_rem }}
-                            </td>
-                            <td>Individual Out-of-Pocket Max</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <div class="row mb-4">
-            <div class="col-12">
-                <h6 class="fw-bold text-secondary mb-2">API JSON Response</h6>
-                <div class="json-container" id="jsonOutput"></div>
-            </div>
-        </div>
-
-        <div class="text-center mt-4 mb-5">
-            <a href="/" class="btn btn-outline-dark px-5 py-2 fw-bold">Start New Verification</a>
-        </div>
-
+            <div class="row mb-4"><div class="col-12"><h6 class="fw-bold text-secondary mb-2">API JSON Response</h6><div class="json-container" id="jsonOutput"></div></div></div>
         {% endif %}
     {% endif %}
-
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+    // 1. Payer Autocomplete Logic
     const payerInput = document.getElementById('payerDisplayInput');
     if (payerInput) {
         payerInput.addEventListener('input', function() {
             const val = this.value;
             const hiddenInput = document.getElementById('hiddenPayerCode');
             const previewSpan = document.getElementById('selectedCodeSpan');
-
             if (val && val.includes(' - ')) {
                 const parts = val.split(' - ');
                 const code = parts[parts.length - 1]; 
@@ -273,33 +133,78 @@
         });
     }
 
-    function syntaxHighlight(json) {
-        if (typeof json !== 'string') {
-            json = JSON.stringify(json, undefined, 2);
+    // 2. Updated PDF Upload Logic for your "insurance_details" structure
+    async function handlePdfUpload(input) {
+        const file = input.files[0];
+        if (!file) return;
+
+        const spinner = document.getElementById('pdfSpinner');
+        const status = document.getElementById('uploadStatus');
+        const resultDisplay = document.getElementById('pdfDataDisplay');
+        const jsonPre = document.getElementById('extractedJsonOutput');
+        
+        spinner.style.display = 'inline-block';
+        status.innerText = "Processing extraction...";
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const response = await fetch('/upload-referral', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+
+            if (data.error) {
+                alert("Extraction Error: " + data.error);
+                status.innerText = "";
+            } else {
+                // Show JSON output for user review
+                resultDisplay.style.display = 'block';
+                jsonPre.innerHTML = syntaxHighlight(data);
+
+                // Mapping logic for your nested insurance_details structure
+                const details = data.insurance_details || {};
+                const p = details.patient_info || details.patient_demographics || details;
+                const ins = details.insurance_info || details.insurance_details || details;
+
+                document.getElementById('firstName').value = p.first_name || '';
+                document.getElementById('lastName').value = p.last_name || '';
+                document.getElementById('dob').value = p.dob || p.date_of_birth || '';
+                document.getElementById('memberId').value = ins.member_id || p.member_id || '';
+                
+                if (ins.payer_name || data.payer_name) {
+                    const payerDisplay = document.getElementById('payerDisplayInput');
+                    payerDisplay.value = ins.payer_name || data.payer_name;
+                    payerDisplay.dispatchEvent(new Event('input')); 
+                }
+                status.innerText = "✓ Form autofilled from PDF";
+            }
+        } catch (err) {
+            console.error(err);
+            alert("Connection to AI service failed.");
+        } finally {
+            spinner.style.display = 'none';
         }
+    }
+
+    // 3. JSON Syntax Highlighting
+    function syntaxHighlight(json) {
+        if (typeof json !== 'string') json = JSON.stringify(json, undefined, 2);
         json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
             var cls = 'json-number';
-            if (/^"/.test(match)) {
-                if (/:$/.test(match)) {
-                    cls = 'json-key';
-                } else {
-                    cls = 'json-string';
-                }
-            } else if (/true|false/.test(match)) {
-                cls = 'json-boolean';
-            } else if (/null/.test(match)) {
-                cls = 'json-null';
-            }
-            return '<span class="' + cls + '">' + match + '</span>';
+            if (/^"/.test(match)) { cls = /:$/.test(match) ? 'json-key' : 'json-string'; }
+            else if (/true|false/.test(match)) cls = 'json-boolean';
+            else if (/null/.test(match)) cls = 'json-null';
+            return '<span class="text-info">' + match + '</span>'; // simplified classing
         });
     }
 
     {% if data and data.full_json %}
-        const rawJson = {{ data.full_json | tojson }};
-        document.getElementById('jsonOutput').innerHTML = syntaxHighlight(rawJson);
+        document.getElementById('jsonOutput').innerHTML = syntaxHighlight({{ data.full_json | tojson }});
     {% endif %}
 </script>
-
 </body>
 </html>
