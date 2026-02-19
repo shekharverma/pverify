@@ -58,7 +58,7 @@ def index():
         try:
             # YOUR ORIGINAL STATIC DATA
             static_provider_last = "Corium Ventures Pllc"
-            static_npi = "1346553120"
+            static_npi = "1770098261"
             static_dos = datetime.now().strftime("%m/%d/%Y")
             static_is_sub_patient = True
 
@@ -164,7 +164,8 @@ def index():
 @app.route('/upload-referral', methods=['POST'])
 def upload_referral():
     if 'file' not in request.files:
-        return jsonify({"error": "No file"}), 400
+        return jsonify({"error": "No file part"}), 400
+    
     file = request.files['file']
     if file.filename == '':
         return jsonify({"error": "No selected file"}), 400
@@ -173,13 +174,18 @@ def upload_referral():
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
     file.save(filepath)
     
-    # Process with the zero-loss logic we built earlier
+    # Process with the logic
     data = extract_from_referral(filepath)
     
     if os.path.exists(filepath):
         os.remove(filepath)
     
-    return jsonify(data) if data else jsonify({"error": "AI Extraction failed"}), 500
+    # CHANGE: Just return the data directly. 
+    # If it's the JSON result, it shows. If it's the error dict, it shows.
+    if data:
+        return jsonify(data)
+    
+    return jsonify({"error": "Unknown system failure"}), 500
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8081)

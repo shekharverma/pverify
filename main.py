@@ -3,16 +3,16 @@ from fastapi.middleware.cors import CORSMiddleware
 import requests
 import time
 from fastapi.middleware.cors import CORSMiddleware
+load_dotenv() # Loads the .env file
 app = FastAPI()
 
 # ================= CONFIG =================
-OAUTH_CLIENT_ID = '2f153525-799d-4983-9a10-dfc6a2f8f48c'
-OAUTH_CLIENT_SECRET = 'HY8wCKHNxq9fviBfeLhtUE98PBew'
-API_CLIENT_ID = '2f153525-799d-4983-9a10-dfc6a2f8f48c'
+OAUTH_CLIENT_ID = os.environ.get('PVERIFY_OAUTH_CLIENT_ID')
+OAUTH_CLIENT_SECRET = os.environ.get('PVERIFY_OAUTH_CLIENT_SECRET')
+API_CLIENT_ID = os.environ.get('PVERIFY_API_CLIENT_ID')
 
-TOKEN_URL = 'https://api.pverify.com/Token'
-SUMMARY_URL = 'https://api.pverify.com/api/EligibilitySummary'
-
+TOKEN_URL = os.environ.get('PVERIFY_TOKEN_URL')
+SUMMARY_URL = os.environ.get('PVERIFY_SUMMARY_URL')
 access_token = None
 token_expiry = 0
 

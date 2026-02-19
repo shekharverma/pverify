@@ -2,57 +2,73 @@ import os
 import json
 from google import genai
 from google.genai import types
+from dotenv import load_dotenv  # <--- Add this
+
+load_dotenv()
+api_key = os.environ.get("GEMINI_API_KEY")
 
 client = genai.Client(
-    api_key="AIzaSyBHOXym8COoMrDxE9GSDXvDw4x7A37yPyQ",
+    api_key=api_key,
     http_options={'api_version': 'v1beta'}
 )
+
+# In readpdf.py
 
 def extract_from_referral(pdf_path):
     try:
         if not os.path.exists(pdf_path):
-            return None
+            return {"error": "File path does not exist"}
 
-        # Upload the PDF
         medical_doc = client.files.upload(file=pdf_path)
 
-        # Prompt modified to allow the AI to build the best structure it can
+        # 1. STRICT PROMPT (Enforces keys and forbids nulls)
         prompt = """
-        Extract EVERY detail from this document into a structured JSON format. 
-        Create a single top-level key named 'insurance_details'.
-        Inside 'insurance_details', create sub-keys for:
-        - Patient demographics
-        - Insurance info (Member ID, Payer, Group)
-        - Provider info (NPI, Name, Facility)
-        - All clinical codes and notes
+        You are a medical data extraction API. Your job is to extract data into a strict JSON format.
         
-        Capture every bit of text. Do not leave anything behind.
+        RULES:
+        1. Extract specific form data into 'form_population_data'.
+        2. Extract full details into 'insurance_details'.
+        3. IF A VALUE IS MISSING, RETURN AN EMPTY STRING "". DO NOT RETURN null OR None.
+        4. Do not invent data. Use the text exactly as it appears.
+
+        REQUIRED JSON STRUCTURE:
+        {
+          "form_population_data": {
+            "first_name": "Patient first name",
+            "last_name": "Patient last name",
+            "dob": "MM/DD/YYYY",
+            "member_id": "Insurance Member ID / Subscriber ID",
+            "payer_name": "Insurance Company Name (e.g. BCBS, Aetna)"
+          },
+          "insurance_details": {
+             ... extract all other clinical and provider data here ...
+          }
+        }
         """
 
+        # 2. CONFIGURATION (The Magic Fix)
+        # temperature=0.0 removes randomness.
+        # response_mime_type='application/json' enforces JSON.
         response = client.models.generate_content(
             model='gemini-2.0-flash',
             contents=[medical_doc, prompt],
             config=types.GenerateContentConfig(
-                # We use 'application/json' but REMOVE the rigid response_schema
-                # This enables "JSON Mode" for maximum flexibility
-                response_mime_type='application/json'
+                response_mime_type='application/json',
+                temperature=0.0  # <--- THIS IS CRITICAL FOR CONSISTENCY
             )
         )
 
         client.files.delete(name=medical_doc.name)
         
-        # Parse the dynamic JSON directly
-        return json.loads(response.text)
+        # Cleanup markdown formatting if present
+        raw_text = response.text.strip()
+        if raw_text.startswith("```"):
+             raw_text = raw_text.split("\n", 1)[1].rsplit("\n", 1)[0].strip()
 
-    except json.JSONDecodeError as je:
-        print(f"JSON Parsing Error: The model output invalid JSON. Details: {je}")
-        # Fallback: Print raw text to see what happened
-        print("Raw Response:", response.text)
-        return None
+        return json.loads(raw_text)
+
     except Exception as e:
-        print(f"Extraction failed: {str(e)}")
-        return None
-
+        return {"error": str(e)}
 if __name__ == "__main__":
     file_path = "lefevre,brenda_referral 5.8.24.pdf"
     data = extract_from_referral(file_path)
