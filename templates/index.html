@@ -299,7 +299,6 @@
     }
 
     // DEEP JSON SEARCH ALGORITHM
-    // Searches recursively through an object for specific target keys.
     function deepSearchForKeys(obj, possibleKeys) {
         if (!obj || typeof obj !== 'object') return '';
         for (let key in obj) {
@@ -365,12 +364,12 @@
                 const idKeys = ['member_id', 'memberid', 'subscriber_id', 'subscriberid', 'policy_number', 'patient_subscriber_no', 'patient_ssn'];
                 const payerKeys = ['payer_name', 'payername', 'insurance_name', 'insurance_company', 'payer', 'patient_insurance', 'insurance'];
 
-                // 1. First Name Logic (Handles full names correctly)
+                // 1. First Name Logic
                 let fName = form.first_name || deepSearchForKeys(data, fnKeys);
                 if (fName.includes(" ")) fName = fName.split(" ")[0]; 
                 document.getElementById('firstName').value = fName;
 
-                // 2. Last Name Logic (Checks if full name was returned by AI)
+                // 2. Last Name Logic
                 let lName = form.last_name || deepSearchForKeys(data, lnKeys);
                 if (!lName && deepSearchForKeys(data, fnKeys).includes(" ")) {
                     let full = deepSearchForKeys(data, fnKeys);
@@ -463,7 +462,7 @@
         delete m[k];
         localStorage.setItem('payer_mappings', JSON.stringify(m)); 
         
-        renderMappingTable(); // Re-render without closing the modal
+        renderMappingTable(); 
         showNotification("Mapping deleted.", "success");
     }
 
@@ -483,6 +482,13 @@
                     return `<span class="${c}">${m}</span>`;
                 });
     }
+
+    // --- ADDED BACK FINAL JSON RESPONSE DISPLAY ---
+    {% if data and data.full_json %}
+        const rawJsonFromApi = {{ data.full_json | tojson }};
+        const apiJsonBox = document.getElementById('jsonOutput');
+        if (apiJsonBox) apiJsonBox.innerHTML = syntaxHighlight(rawJsonFromApi);
+    {% endif %}
 </script>
 </body>
 </html>

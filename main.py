@@ -3,6 +3,9 @@ from fastapi.middleware.cors import CORSMiddleware
 import requests
 import time
 from fastapi.middleware.cors import CORSMiddleware
+import os
+from dotenv import load_dotenv
+
 load_dotenv() # Loads the .env file
 app = FastAPI()
 
