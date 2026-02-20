@@ -84,18 +84,20 @@
             </div>
 
             <form action="/" method="POST" id="verifyForm">
+                <input type="hidden" name="gemini_json_raw" id="gemini_json_raw" value="{{ form_data.get('gemini_json_raw', '') | e }}">
+                
                 <div class="row g-3 mb-4">
                     <div class="col-md-3">
                         <label class="form-label">First Name</label>
-                        <input type="text" name="firstName" id="firstName" class="form-control" value="{{ form_data.firstName if form_data else '' }}">
+                        <input type="text" name="firstName" id="firstName" class="form-control" value="{{ form_data.firstName if form_data else '' }}" >
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">Last Name</label>
-                        <input type="text" name="lastName" id="lastName" class="form-control" value="{{ form_data.lastName if form_data else '' }}">
+                        <input type="text" name="lastName" id="lastName" class="form-control" value="{{ form_data.lastName if form_data else '' }}" >
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">Date of Birth</label>
-                        <input type="text" name="dob" id="dob" class="form-control" placeholder="MM/DD/YYYY" value="{{ form_data.dob if form_data else '' }}">
+                        <input type="text" name="dob" id="dob" class="form-control" placeholder="MM/DD/YYYY" value="{{ form_data.dob if form_data else '' }}" >
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">Member ID <span class="text-danger">*</span></label>
@@ -114,7 +116,7 @@
                         </button>
                     </div>
                     <input class="form-control form-control-lg" list="payersDataList" id="payerDisplayInput" placeholder="Start typing payer name..." autocomplete="off" required value="{{ form_data.get('payerDisplayInput', '') }}">
-                    <input type="hidden" name="payerCode" id="hiddenPayerCode" value="{{ form_data.payerCode if form_data else '' }}">
+                    <input type="hidden" name="payerCode" id="hiddenPayerCode" value="{{ form_data.payerCode if form_data else '' }}" required>
                     <datalist id="payersDataList">
                         {% for payer in payers %}
                             <option value="{{ payer.payerName }} - {{ payer.payerCode }}"></option>
@@ -126,15 +128,16 @@
                 </div>
 
                 <div class="d-grid mb-4">
-                    <button type="submit" class="btn btn-primary btn-lg">Verify Eligibility</button>
+                    <button type="submit" id="verifyBtn" class="btn btn-primary btn-lg" disabled>Verify Eligibility</button>
                 </div>
             </form>
 
-            <div id="pdfDataDisplay" class="mb-4" style="display: none;">
+            <div id="pdfDataDisplay" class="mb-4" style="{% if form_data and form_data.get('gemini_json_raw') %}display:block;{% else %}display:none;{% endif %}">
                 <hr>
                 <h6 class="fw-bold text-primary mb-2 small text-uppercase">Extracted Data Result (PDF):</h6>
                 <pre id="extractedJsonOutput" class="json-container" style="max-height: 200px;"></pre>
             </div>
+            
             {% if data %}
                 {% if data.error %}
                     <div class="alert alert-danger">{{ data.error }}</div>
@@ -286,15 +289,10 @@
                 </div>
             </div>
         `;
-        
         container.insertAdjacentHTML('beforeend', html);
-        
         setTimeout(() => {
             const el = document.getElementById(id);
-            if(el) {
-                el.classList.remove('show');
-                setTimeout(() => el.remove(), 500);
-            }
+            if(el) { el.classList.remove('show'); setTimeout(() => el.remove(), 500); }
         }, 3000);
     }
 
@@ -303,9 +301,7 @@
         if (!obj || typeof obj !== 'object') return '';
         for (let key in obj) {
             if (possibleKeys.includes(key.toLowerCase())) {
-                if (typeof obj[key] === 'string' || typeof obj[key] === 'number') {
-                    return String(obj[key]).trim();
-                }
+                if (typeof obj[key] === 'string' || typeof obj[key] === 'number') return String(obj[key]).trim();
             }
         }
         for (let key in obj) {
@@ -315,6 +311,50 @@
             }
         }
         return '';
+    }
+
+    // STRICT DOB FORMATTING LOGIC
+    function formatDOB(dateStr) {
+        if (!dateStr) return '';
+        let clean = dateStr.replace(/[^\d\/\-.]/g, '').replace(/[\-.]/g, '/');
+        const parts = clean.split('/');
+        if (parts.length === 3) {
+            let m = parts[0].padStart(2, '0');
+            let d = parts[1].padStart(2, '0');
+            let y = parts[2];
+            // Ensure 4 digit year
+            if (y.length === 2) y = parseInt(y) > 30 ? '19' + y : '20' + y;
+            return `${m}/${d}/${y}`;
+        }
+        return clean; 
+    }
+
+    // Check if the user edits the DOB box manually to enforce format
+    const dobInput = document.getElementById('dob');
+    if (dobInput) {
+        dobInput.addEventListener('blur', function(e) {
+            e.target.value = formatDOB(e.target.value);
+            checkFormReadiness();
+        });
+    }
+
+    // FORM READINESS CHECKER (Disables button if missing MemberID or Payer)
+    function checkFormReadiness() {
+        const mid = document.getElementById('memberId').value.trim();
+        const pcode = document.getElementById('hiddenPayerCode').value.trim();
+        const btn = document.getElementById('verifyBtn');
+        
+        if (mid && pcode) { 
+            btn.disabled = false; 
+        } else { 
+            btn.disabled = true; 
+        }
+    }
+
+    // Attach listener to Member ID so it checks when typing
+    const memberIdInput = document.getElementById('memberId');
+    if (memberIdInput) {
+        memberIdInput.addEventListener('input', checkFormReadiness);
     }
 
     // 1. PAYER AUTOCOMPLETE LOGIC
@@ -333,6 +373,7 @@
                 hiddenInput.value = val; previewSpan.innerText = val || "None";
                 previewSpan.className = "fw-bold text-muted";
             }
+            checkFormReadiness(); // Check button status when payer changes
         });
     }
 
@@ -347,6 +388,8 @@
         try {
             const response = await fetch('/upload-referral', { method: 'POST', body: formData });
             const data = await response.json();
+            
+            document.getElementById('gemini_json_raw').value = JSON.stringify(data);
             document.getElementById('pdfDataDisplay').style.display = 'block';
             jsonOutput.innerHTML = syntaxHighlight(data);
 
@@ -357,19 +400,16 @@
             else {
                 const form = data.form_population_data || {};
 
-                // Expanded Search Keys
                 const fnKeys = ['first_name', 'firstname', 'patient_first_name', 'patient_name', 'patientname'];
                 const lnKeys = ['last_name', 'lastname', 'patient_last_name'];
                 const dobKeys = ['dob', 'date_of_birth', 'dateofbirth', 'birthdate', 'birth_date', 'patient_dob'];
                 const idKeys = ['member_id', 'memberid', 'subscriber_id', 'subscriberid', 'policy_number', 'patient_subscriber_no', 'patient_ssn'];
                 const payerKeys = ['payer_name', 'payername', 'insurance_name', 'insurance_company', 'payer', 'patient_insurance', 'insurance'];
 
-                // 1. First Name Logic
                 let fName = form.first_name || deepSearchForKeys(data, fnKeys);
                 if (fName.includes(" ")) fName = fName.split(" ")[0]; 
                 document.getElementById('firstName').value = fName;
 
-                // 2. Last Name Logic
                 let lName = form.last_name || deepSearchForKeys(data, lnKeys);
                 if (!lName && deepSearchForKeys(data, fnKeys).includes(" ")) {
                     let full = deepSearchForKeys(data, fnKeys);
@@ -377,11 +417,10 @@
                 }
                 document.getElementById('lastName').value = lName;
 
-                // 3. DOB and Member ID
-                document.getElementById('dob').value = form.dob || deepSearchForKeys(data, dobKeys);
+                let rawDob = form.dob || deepSearchForKeys(data, dobKeys);
+                document.getElementById('dob').value = formatDOB(rawDob); // Force strict format here
                 document.getElementById('memberId').value = form.member_id || deepSearchForKeys(data, idKeys);
 
-                // 4. Smart Payer Logic
                 lastExtractedRawPayer = form.payer_name || deepSearchForKeys(data, payerKeys);
                 const rawName = lastExtractedRawPayer.toLowerCase().trim();
                 const mappings = JSON.parse(localStorage.getItem('payer_mappings') || '{}');
@@ -402,9 +441,10 @@
                         }
                         pBox.value = best || lastExtractedRawPayer;
                     }
-                    pBox.dispatchEvent(new Event('input'));
+                    pBox.dispatchEvent(new Event('input')); 
                 }
                 status.innerText = "✅ Done! Form filled.";
+                checkFormReadiness(); // Activate the button
             }
         } catch (err) { 
             status.innerText = "❌ Error connecting to server."; 
@@ -417,12 +457,10 @@
     function saveNewMapping() {
         const aiName = document.getElementById('aiPayerName').value.toLowerCase().trim();
         const sysVal = document.getElementById('mapToPayerInput').value;
-        
         if (!sysVal || aiName.includes("no pdf") || aiName === "") {
             showNotification("Please select a valid system payer first.", "danger");
             return;
         }
-        
         let mappings = JSON.parse(localStorage.getItem('payer_mappings') || '{}');
         mappings[aiName] = sysVal;
         localStorage.setItem('payer_mappings', JSON.stringify(mappings));
@@ -461,7 +499,6 @@
         let m = JSON.parse(localStorage.getItem('payer_mappings')); 
         delete m[k];
         localStorage.setItem('payer_mappings', JSON.stringify(m)); 
-        
         renderMappingTable(); 
         showNotification("Mapping deleted.", "success");
     }
@@ -483,12 +520,33 @@
                 });
     }
 
-    // --- ADDED BACK FINAL JSON RESPONSE DISPLAY ---
-    {% if data and data.full_json %}
-        const rawJsonFromApi = {{ data.full_json | tojson }};
-        const apiJsonBox = document.getElementById('jsonOutput');
-        if (apiJsonBox) apiJsonBox.innerHTML = syntaxHighlight(rawJsonFromApi);
-    {% endif %}
+    // --- RESTORES AI JSON DISPLAY AFTER SUBMIT ---
+    document.addEventListener("DOMContentLoaded", function() {
+        {% if data and data.full_json %}
+            const rawJsonFromApi = {{ data.full_json | tojson }};
+            const apiJsonBox = document.getElementById('jsonOutput');
+            if (apiJsonBox) apiJsonBox.innerHTML = syntaxHighlight(rawJsonFromApi);
+        {% endif %}
+        
+        // Use Jinja to inject string payload securely into javascript to avoid HTML breaking
+        {% if form_data and form_data.get('gemini_json_raw') %}
+            try {
+                const rawGeminiStr = {{ form_data.get('gemini_json_raw') | tojson | safe }};
+                if (rawGeminiStr && rawGeminiStr.trim().startsWith('{')) {
+                    const parsedGemini = JSON.parse(rawGeminiStr);
+                    document.getElementById('extractedJsonOutput').innerHTML = syntaxHighlight(parsedGemini);
+                    document.getElementById('pdfDataDisplay').style.display = 'block';
+                    
+                    const payerKeys = ['payer_name', 'payername', 'insurance_name', 'insurance_company', 'payer', 'patient_insurance', 'insurance'];
+                    lastExtractedRawPayer = parsedGemini.form_population_data?.payer_name || deepSearchForKeys(parsedGemini, payerKeys) || "";
+                }
+            } catch(e) {
+                console.error("Failed to parse restored Gemini JSON", e);
+            }
+        {% endif %}
+        
+        checkFormReadiness();
+    });
 </script>
 </body>
 </html>

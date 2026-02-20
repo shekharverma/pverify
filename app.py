@@ -58,7 +58,7 @@ def index():
         try:
             # YOUR ORIGINAL STATIC DATA
             static_provider_last = "Corium Ventures Pllc"
-            static_npi = "1770098261"
+            static_npi = "1346553120"
             static_dos = datetime.now().strftime("%m/%d/%Y")
             static_is_sub_patient = True
 
@@ -102,8 +102,9 @@ def index():
                             return s_val
                     return s_val
 
-                spec_data = {"copay": None, "coins": fmt_percent(plan_coins), "auth": None, "desc": "Office Visit"}
-                surg_data = {"coins": fmt_percent(plan_coins), "auth": None, "desc": "Surgical Services"}
+                # CHANGED: Default values for copay and coins if not found
+                spec_data = {"copay": "0", "coins": fmt_percent(plan_coins) or "0%", "auth": None, "desc": "Office Visit"}
+                surg_data = {"coins": fmt_percent(plan_coins) or "0%", "auth": None, "desc": "Surgical Services"}
 
                 for s in services:
                     name = s.get("ServiceName", "").lower()
@@ -180,8 +181,6 @@ def upload_referral():
     if os.path.exists(filepath):
         os.remove(filepath)
     
-    # CHANGE: Just return the data directly. 
-    # If it's the JSON result, it shows. If it's the error dict, it shows.
     if data:
         return jsonify(data)
     
