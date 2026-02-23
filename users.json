@@ -1,0 +1,14 @@
+{
+    "2262": {
+        "role": "provider",
+        "name": "Provider/PA"
+    },
+    "1234": {
+        "role": "checkout",
+        "name": "Checkout Desk"
+    },
+    "0000": {
+        "role": "admin",
+        "name": "Dr. Amit"
+    }
+}

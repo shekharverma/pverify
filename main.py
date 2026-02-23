@@ -41,7 +41,7 @@ def get_access_token():
 
     response = requests.post(
         TOKEN_URL,
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
+       headers={"Content-Type": "application/x-www-form-urlencoded"},
         data={
             "Client_Id": OAUTH_CLIENT_ID,
             "Client_Secret": OAUTH_CLIENT_SECRET,

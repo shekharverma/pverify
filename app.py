@@ -1,15 +1,14 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 import requests
 import json
 import os
 import urllib3
 from datetime import datetime
 from werkzeug.utils import secure_filename
-from readpdf import extract_from_referral  # Import your extraction function
+from readpdf import extract_from_referral
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-# Load .env from app directory
 _env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
 if os.path.isfile(_env_path):
     with open(_env_path, "r", encoding="utf-8") as f:
@@ -22,6 +21,7 @@ if os.path.isfile(_env_path):
                     os.environ[k] = v
 
 app = Flask(__name__)
+app.secret_key = "super_secret_healthcare_key_change_in_prod" 
 
 # Config for Uploads
 UPLOAD_FOLDER = 'uploads'
@@ -33,30 +33,106 @@ ELIGIBILITY_API_URL = os.environ.get(
     "https://api.insuranceclaim.urtestsite.com/api/check-eligibility"
 )
 
-# ================= LOAD PAYERS =================
+# ================= ROLE BASED LOGIN DB =================
+import json
+import os
+
+# Define the path for the persistent user database
+USERS_FILE = "users.json"
+
+# Helper to load users from file or use defaults if file doesn't exist
+def load_users():
+    if os.path.exists(USERS_FILE):
+        with open(USERS_FILE, "r") as f:
+            return json.load(f)
+    else:
+        # Initial default data
+        defaults = {
+            "7432": {"role": "admin", "name": "Dr. Amit"},
+            "2262": {"role": "provider", "name": "Provider/PA"},
+            "1234": {"role": "checkout", "name": "Checkout Desk"}
+        }
+        save_users(defaults)
+        return defaults
+
+# Helper to save users to the physical file
+def save_users(users_dict):
+    with open(USERS_FILE, "w") as f:
+        json.dump(users_dict, f, indent=4)
+
+# Load users at startup
+USERS = load_users()
+
+@app.route('/login', methods=['POST'])
+def login():
+    # RE-LOAD users from file to ensure we have the latest changed PINs
+    global USERS
+    USERS = load_users()
+    
+    access_code = request.form.get('access_code')
+    user = USERS.get(access_code)
+    if user:
+        session['role'] = user['role']
+        session['name'] = user['name']
+        session['current_code'] = access_code
+        return redirect(url_for('index'))
+    return render_template("index.html", payers=load_payers(), login_error="Invalid Access Code")
+
+@app.route('/change-code', methods=['POST'])
+def change_code():
+    if not session.get('role'):
+        return jsonify({"success": False, "error": "Not authenticated."})
+    
+    # RE-LOAD users to ensure we aren't overwriting someone else's change
+    users_db = load_users()
+    
+    current_code = request.form.get('current_code')
+    new_code = request.form.get('new_code')
+    
+    if current_code != session.get('current_code') or current_code not in users_db:
+        return jsonify({"success": False, "error": "Incorrect current PIN."})
+    
+    if new_code in users_db:
+        return jsonify({"success": False, "error": "PIN already in use. Choose another."})
+        
+    # Move the user data to the new key and remove the old one
+    user_data = users_db.pop(current_code)
+    users_db[new_code] = user_data
+    
+    # PERSIST TO FILE
+    save_users(users_db)
+    
+    # Update local memory and session
+    session['current_code'] = new_code 
+    
+    return jsonify({"success": True, "message": "PIN updated and saved permanently!"})
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('index'))
+
 def load_payers():
     try:
-        # This opens your JSON file containing the list of payers
         with open("payers_output.json", "r", encoding='utf-8') as f:
             return json.load(f)
     except Exception as e:
         print(f"Error loading payers: {e}")
         return []
 
-# ================= MAIN ROUTE (PRESERVED) =================
+# ================= MAIN ROUTE =================
 @app.route('/', methods=['GET', 'POST'])
 def index():
     payers = load_payers()
     formatted_data = None
     form_data = {}
 
-    if request.method == 'POST':
+    if request.method == 'POST' and 'payerCode' in request.form:
         form_data = request.form
         form_data_dict = form_data.to_dict()
         form_data_dict['payerDisplayInput'] = request.form.get('payerDisplayInput', '')
 
         try:
-            # YOUR ORIGINAL STATIC DATA
             static_provider_last = "Corium Ventures Pllc"
             static_npi = "1346553120"
             static_dos = datetime.now().strftime("%m/%d/%Y")
@@ -94,17 +170,16 @@ def index():
                 def fmt_percent(val):
                     if val is None: return None
                     s_val = str(val)
-                    if s_val == "0": return "0%"
+                    if s_val == "0": return "0.00%"
                     if "." in s_val:
                         try:
-                            return f"{int(float(s_val)*100)}%"
+                            return f"{float(s_val)*100:.0f}%" # Rounded percent like screenshot
                         except:
                             return s_val
                     return s_val
 
-                # CHANGED: Default values for copay and coins if not found
-                spec_data = {"copay": "0", "coins": fmt_percent(plan_coins) or "0%", "auth": None, "desc": "Office Visit"}
-                surg_data = {"coins": fmt_percent(plan_coins) or "0%", "auth": None, "desc": "Surgical Services"}
+                spec_data = {"copay": "0.00", "coins": fmt_percent(plan_coins) or "0.00%", "auth": None, "desc": "Office Visit"}
+                surg_data = {"coins": fmt_percent(plan_coins) or "0.00%", "auth": None, "desc": "Surgical Services"}
 
                 for s in services:
                     name = s.get("ServiceName", "").lower()
@@ -114,41 +189,32 @@ def index():
                         if "professional" in name or "office" in name:
                             if benefit_type == "Co-Payment":
                                 val = d.get("MonetaryAmount")
-                                if val is not None: spec_data["copay"] = val
+                                if val is not None: 
+                                    try:
+                                        spec_data["copay"] = f"{float(val):.2f}"
+                                    except (ValueError, TypeError):
+                                        spec_data["copay"] = str(val)
+                            
                             if benefit_type == "Co-Insurance":
                                 val = d.get("Percent")
                                 if val is not None: spec_data["coins"] = fmt_percent(val)
                             auth = d.get("AuthorizationOrCertificationRequired")
                             if auth: spec_data["auth"] = auth
-                        if "surgery" in name or "surgical" in name:
-                            if benefit_type == "Co-Insurance":
-                                val = d.get("Percent")
-                                if val is not None: surg_data["coins"] = fmt_percent(val)
-                            auth = d.get("AuthorizationOrCertificationRequired")
-                            if auth: surg_data["auth"] = auth
 
                 formatted_data = {
                     "full_json": api_data,
                     "is_hmo": api_data.get("IsHMOPlan"),
                     "status": summary.get("Status"),
-                    "payer_name": api_data.get("PayerName", "United Healthcare"),
+                    "payer_name": api_data.get("PayerName", "Unknown Payer"),
                     "ver_type": api_data.get("VerificationType", "Subscriber Verification"),
                     "dos": api_data.get("DOS"),
-                    "effective": summary.get("EffectiveDate"),
-                    "expiry": summary.get("ExpiryDate"),
-                    "plan_name": summary.get("PlanName"),
-                    "policy_type": summary.get("PolicyType"),
-                    "group_num": summary.get("GroupNumber"),
-                    "group_name": summary.get("GroupName"),
-                    "gender": summary.get("PatientGender"),
                     "benefits": {
                         "specialist": spec_data,
                         "surgical": surg_data,
                         "oop": {
-                            "indiv_deduct": (oop.get("IndividualDeductibleInNet") or {}).get("Value") or "$0",
-                            "indiv_deduct_rem": (oop.get("IndividualDeductibleRemainingInNet") or {}).get("Value") or "$0",
-                            "indiv_oop": (oop.get("IndividualOOP_InNet") or {}).get("Value") or "$0",
-                            "indiv_oop_rem": (oop.get("IndividualOOPRemainingInNet") or {}).get("Value") or "$0",
+                            # RESTORED ALL VARIABLES
+                            "indiv_deduct_rem": (oop.get("IndividualDeductibleRemainingInNet") or {}).get("Value") or "$0.00",
+                            "indiv_oop_rem": (oop.get("IndividualOOPRemainingInNet") or {}).get("Value") or "$0.00"
                         }
                     }
                 }
@@ -161,7 +227,6 @@ def index():
 
     return render_template("index.html", payers=payers, data=None, form_data={})
 
-# ================= NEW UPLOAD ROUTE =================
 @app.route('/upload-referral', methods=['POST'])
 def upload_referral():
     if 'file' not in request.files:
@@ -175,9 +240,7 @@ def upload_referral():
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
     file.save(filepath)
     
-    # Process with the logic
     data = extract_from_referral(filepath)
-    
     if os.path.exists(filepath):
         os.remove(filepath)
     

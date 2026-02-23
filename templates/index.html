@@ -6,43 +6,13 @@
     <title>pVerify Eligibility Portal</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { 
-            background: #f0f2f5; 
-            font-family: 'Inter', sans-serif; 
-            color: #333;
-        }
-        .container { max-width: 1000px; }
-        .card { 
-            border: none; 
-            border-radius: 12px; 
-            box-shadow: 0 4px 20px rgba(0,0,0,0.06); 
-            background: #fff;
-            overflow: hidden;
-        }
-        .card-header-primary {
-            background: linear-gradient(135deg, #0d6efd 0%, #0043a8 100%);
-            color: white; font-weight: 600; padding: 1.2rem;
-        }
-        .card-header-light {
-            background-color: #e7f1ff; color: #004085; font-weight: 600; padding: 1rem; border-bottom: 1px solid #cce5ff;
-        }
-        .info-box { 
-            background: #fff; border-radius: 10px; padding: 15px 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.03); 
-            height: 100%; display: flex; flex-direction: column; justify-content: center; border-left: 4px solid #0d6efd;
-        }
-        .info-label { font-size: 0.75rem; color: #888; text-transform: uppercase; font-weight: 600; margin-bottom: 5px; }
-        .info-value { font-size: 1.25rem; font-weight: 700; color: #2c3e50; }
-        .status-active { color: #198754; }
-        .json-container {
-            background-color: #1e1e1e; color: #d4d4d4; padding: 20px; border-radius: 8px;
-            font-family: monospace; font-size: 0.85rem; max-height: 400px; overflow-y: auto;
-            white-space: pre-wrap; word-break: break-word; border: 1px solid #ddd;
-        }
-        .upload-area {
-            border: 2px dashed #dee2e6; border-radius: 10px; background-color: #f8f9fa; transition: all 0.2s ease;
-        }
+        body { background: #f0f2f5; font-family: 'Inter', sans-serif; color: #333; }
+        .container { max-width: 1100px; } /* Slightly wider for 4 slots */
+        .card { border: none; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.06); background: #fff; overflow: hidden; }
+        .card-header-primary { background: linear-gradient(135deg, #0d6efd 0%, #0043a8 100%); color: white; font-weight: 600; padding: 1.2rem; }
+        .upload-area { border: 2px dashed #dee2e6; border-radius: 10px; background-color: #f8f9fa; transition: all 0.2s ease; cursor: pointer; }
         .upload-area:hover { border-color: #0d6efd; background-color: #f1f4f9; }
         
         .btn-mapping {
@@ -52,31 +22,87 @@
             transition: 0.2s; cursor: pointer;
         }
         .btn-mapping:hover { background: #0d6efd; transform: scale(1.1); }
+
+        .json-container { background-color: #1e1e1e; color: #d4d4d4; padding: 20px; border-radius: 8px; font-family: monospace; font-size: 0.85rem; max-height: 400px; overflow-y: auto; white-space: pre-wrap; word-break: break-word; border: 1px solid #ddd; }
         .json-key { color: #9cdcfe; }
         .json-string { color: #ce9178; }
-
-        /* TOAST CONTAINER FOR CLEAN NOTIFICATIONS */
-        #toastContainer {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 1060;
+        .json-number { color: #b5cea8; }
+        .json-boolean { color: #569cd6; }
+        .json-null { color: #569cd6; }
+        
+        /* FIXED DARK ROW DESIGN */
+        .dark-queue-container { background-color: #161b22; border-radius: 8px; padding: 5px; margin-top: 20px; box-shadow: 0 8px 24px rgba(0,0,0,0.2); }
+        .dark-row { 
+            display: flex; 
+            align-items: center; 
+            padding: 16px 15px; 
+            font-size: 13px; 
+            color: #c9d1d9; 
+            width: 100%;
         }
+        .avatar-circle {
+            width: 32px; height: 32px; border-radius: 50%; background-color: #1f3a5f; color: #58a6ff; 
+            display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 11px; margin-right: 12px; flex-shrink: 0;
+        }
+        .text-green-d { color: #3fb950; font-weight: 700; font-family: monospace; font-size: 14px; }
+        .badge-medigap { background-color: #0b57d0; color: white; padding: 2px 8px; border-radius: 12px; font-size: 10px; margin-left: 5px; font-weight: 600; }
+        .btn-active-dark { background-color: #0b57d0; color: white; border: none; border-radius: 4px; padding: 5px 12px; font-size: 11px; font-weight: 600; }
+        .icon-btn-dark { background: none; border: none; color: #8b949e; margin-left: 10px; font-size: 14px; cursor: pointer; }
+        .nav-bar-custom { background: white; padding: 10px 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 30px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;}
+
+        /* COLUMN WIDTH CONTROL */
+        .col-patient { flex: 0 0 180px; display: flex; align-items: center; overflow: hidden; }
+        .col-dob { flex: 0 0 90px; }
+        .col-payer { flex: 1 1 180px; padding-right: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .col-status-d { flex: 0 0 30px; text-align: center; }
+        .col-fin { flex: 0 0 85px; text-align: center; font-weight: 700; color: #ffffff; }
+        .col-actions { flex: 0 0 160px; text-align: right; display: flex; justify-content: flex-end; align-items: center; }
+        
     </style>
 </head>
 <body>
 
-<div id="toastContainer"></div>
+<div id="toastContainer" style="position: fixed; top: 20px; right: 20px; z-index: 1060;"></div>
 
-<div class="container py-5">
+{% if not session.get('role') %}
+<div class="container mt-5 pt-5" style="max-width: 450px;">
+    <div class="card p-5 text-center shadow-lg border-0" style="border-radius: 15px;">
+        <h4 class="fw-bold mb-2">Practice Login</h4>
+        <p class="text-muted mb-4 small">Please enter your assigned access PIN</p>
+        <form method="POST" action="/login">
+            <input type="password" name="access_code" class="form-control form-control-lg mb-3 text-center fs-3" placeholder="••••" required autofocus>
+            <button type="submit" class="btn btn-primary btn-lg w-100 fw-bold">Enter System</button>
+            {% if login_error %}
+                <div class="alert alert-danger mt-3 small p-2">{{ login_error }}</div>
+            {% endif %}
+        </form>
+    </div>
+</div>
+{% else %}
+
+<div class="container py-4">
+    <div class="nav-bar-custom">
+        <div>
+            <span class="fw-bold text-primary"><i class="bi bi-shield-check me-2"></i>pVerify Gateway</span>
+            <span class="ms-3 badge bg-secondary">Role: {{ session.role | upper }}</span>
+            <span class="ms-2 small text-muted">User: {{ session.name }}</span>
+        </div>
+        <div>
+            <button class="btn btn-sm btn-outline-secondary me-2" data-bs-toggle="modal" data-bs-target="#changePinModal">
+                <i class="bi bi-key-fill me-1"></i>Change PIN
+            </button>
+            <a href="/logout" class="btn btn-sm btn-outline-danger">Logout</a>
+        </div>
+    </div>
+
     <div class="card mb-5">
         <div class="card-header card-header-primary">
             <h5 class="mb-0">Patient Eligibility Search</h5>
         </div>
         <div class="card-body p-4">
             
-            <div class="upload-area text-center p-4 mb-4">
-                <button type="button" class="btn btn-outline-primary fw-bold" onclick="document.getElementById('pdfInput').click()">
+            <div class="upload-area text-center p-4 mb-4" onclick="document.getElementById('pdfInput').click()">
+                <button type="button" class="btn btn-outline-primary fw-bold" onclick="event.stopPropagation(); document.getElementById('pdfInput').click()">
                     <i class="bi bi-file-earmark-pdf-fill me-2"></i>UPLOAD REFERRAL FILE
                 </button>
                 <input type="file" id="pdfInput" accept=".pdf" style="display: none;" onchange="handleReferralUpload(this)">
@@ -122,107 +148,116 @@
                             <option value="{{ payer.payerName }} - {{ payer.payerCode }}"></option>
                         {% endfor %}
                     </datalist>
-                    <div class="mt-2 text-muted small">
-                        Code: <span id="selectedCodeSpan" class="fw-bold text-primary">{{ form_data.payerCode if form_data else 'None' }}</span>
-                    </div>
                 </div>
 
                 <div class="d-grid mb-4">
-                    <button type="submit" id="verifyBtn" class="btn btn-primary btn-lg" disabled>Verify Eligibility</button>
+                    <button type="submit" id="verifyBtn" class="btn btn-primary btn-lg">Verify Eligibility</button>
                 </div>
             </form>
 
-            <div id="pdfDataDisplay" class="mb-4" style="{% if form_data and form_data.get('gemini_json_raw') %}display:block;{% else %}display:none;{% endif %}">
-                <hr>
-                <h6 class="fw-bold text-primary mb-2 small text-uppercase">Extracted Data Result (PDF):</h6>
-                <pre id="extractedJsonOutput" class="json-container" style="max-height: 200px;"></pre>
-            </div>
-            
             {% if data %}
                 {% if data.error %}
                     <div class="alert alert-danger">{{ data.error }}</div>
                 {% else %}
-                <div class="row g-4 mb-4 mt-2">
-                    <div class="col-md-4">
-                        <div class="info-box" style="border-left-color: #2dce89;">
-                            <div class="info-label">Current Status</div>
-                            <div class="info-value status-active">● {{ data.status }}</div>
+                <hr>
+                <h6 class="fw-bold text-muted small mt-4 text-uppercase">Encounter Queue Result</h6>
+                
+                <div class="dark-queue-container mb-5">
+                    <div class="dark-row">
+                        <div class="col-patient">
+                            <div class="avatar-circle">
+                                {{ (form_data.firstName[0] if form_data.firstName else '') ~ (form_data.lastName[0] if form_data.lastName else '') | upper }}
+                            </div>
+                            <span class="fw-bold text-white">{{ form_data.firstName }} {{ form_data.lastName }}</span>
                         </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="info-box">
-                            <div class="info-label">Insurance Payer</div>
-                            <div class="info-value">{{ data.payer_name }}</div>
+                        
+                        <div class="col-dob">
+                            {{ form_data.dob }}
                         </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="info-box" style="border-left-color: #6f42c1;">
-                            <div class="info-label">Policy Type</div>
-                            <div class="info-value text-secondary">{{ data.policy_type if data.policy_type is not none else '' }}</div>
-                            {% if data.is_hmo %}
-                                <div class="mt-2 text-danger fw-bold border border-danger rounded px-2 py-1 bg-white text-center" style="font-size: 0.85rem;">
-                                    ⚠️ PATIENT HAS HMO
-                                </div>
+                        
+                        <div class="col-payer">
+                            {{ data.payer_name }}
+                            {% if 'Medicare' in data.payer_name or 'Medigap' in data.payer_name %}
+                                <span class="badge-medigap">Medigap F</span>
+                            {% elif data.is_hmo %}
+                                <span class="badge-medigap bg-danger">HMO</span>
                             {% endif %}
                         </div>
+                        
+                        <div class="col-status-d">
+                            <span class="text-green-d">d</span>
+                        </div>
+                        
+                        <div class="col-fin" title="Specialist Copay">
+                            {% if data.benefits.specialist.copay %}
+                                {{ data.benefits.specialist.copay if '$' in data.benefits.specialist.copay|string else '$' ~ data.benefits.specialist.copay }}
+                            {% else %}$0.00{% endif %}
+                        </div>
+                        
+                        <div class="col-fin" title="Surgical Co-Insurance">
+                            {{ data.benefits.surgical.coins if data.benefits.surgical.coins else '0%' }}
+                        </div>
+
+                        <div class="col-fin" title="Individual Deductible Remaining">
+                            {{ data.benefits.oop.indiv_deduct_rem if data.benefits.oop.indiv_deduct_rem else '$0.00' }}
+                        </div>
+
+                        <div class="col-fin" title="Individual Out-Of-Pocket Remaining">
+                            {{ data.benefits.oop.indiv_oop_rem if data.benefits.oop.indiv_oop_rem else '$0.00' }}
+                        </div>
+                        
+                        <div class="col-actions">
+                            <button class="btn-active-dark">Active</button>
+                            <button class="icon-btn-dark"><i class="bi bi-calculator"></i></button>
+                            <button class="icon-btn-dark"><i class="bi bi-chevron-down"></i></button>
+                            <button class="icon-btn-dark text-danger"><i class="bi bi-trash"></i></button>
+                        </div>
                     </div>
                 </div>
 
-                <div class="card mb-5">
-                    <div class="card-header card-header-light">
-                        <h5 class="mb-0">Benefit & Service Summary (In-Network)</h5>
-                    </div>
-                    <div class="table-responsive">
-                        <table class="table table-custom table-hover align-middle">
-                            <thead>
-                                <tr>
-                                    <th style="width: 40%;">Benefit Category</th>
-                                    <th style="width: 30%;">Amount / Value</th>
-                                    <th style="width: 30%;">Description / Notes</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td>Specialist Office Co-Pay</td>
-                                    <td class="value-primary">
-                                        {% if data.benefits.specialist.copay is not none %}${{ data.benefits.specialist.copay }}{% endif %}
-                                    </td>
-                                    <td>{{ data.benefits.specialist.desc }}</td>
-                                </tr>
-                                <tr>
-                                    <td>Surgical Services Co-Ins</td>
-                                    <td class="value-primary">
-                                        {% if data.benefits.surgical.coins is not none %}{{ data.benefits.surgical.coins }}{% endif %}
-                                    </td>
-                                    <td>{{ data.benefits.surgical.desc }}</td>
-                                </tr>
-                                <tr class="table-light">
-                                    <td><strong>Induidual deductible remaining in net</strong></td>
-                                    <td class="value-fraction text-danger">{{ data.benefits.oop.indiv_deduct_rem }}</td>
-                                    <td>Individual Plan Deductible</td>
-                                </tr>
-                                <tr class="table-light">
-                                    <td><strong>Induidual OOP remaining in net</strong></td>
-                                    <td class="value-fraction text-success">{{ data.benefits.oop.indiv_oop_rem }}</td>
-                                    <td>Individual Out-of-Pocket Max</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <div class="row mb-4">
+                <div class="row mb-4 mt-5">
                     <div class="col-12">
-                        <h6 class="fw-bold text-secondary mb-2">API JSON Response</h6>
+                        <h6 class="fw-bold text-secondary mb-2">API Eligibility JSON Response</h6>
                         <div class="json-container" id="jsonOutput"></div>
                     </div>
                 </div>
-
-                <div class="text-center mt-4 mb-5">
-                    <a href="/" class="btn btn-outline-dark px-5 py-2 fw-bold">Clear All & Start New</a>
+                
+                <div class="text-center mt-5 mb-4">
+                    <a href="/" class="btn btn-outline-secondary px-4 fw-bold">Clear Patient</a>
                 </div>
                 {% endif %}
             {% endif %}
+            
+            <div id="pdfDataDisplay" class="mb-4" style="{% if form_data and form_data.get('gemini_json_raw') %}display:block;{% else %}display:none;{% endif %}">
+                <hr>
+                <h6 class="fw-bold text-primary mb-2 small text-uppercase">Extracted Data Result (Gemini PDF):</h6>
+                <pre id="extractedJsonOutput" class="json-container" style="max-height: 200px;"></pre>
+            </div>
+            
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="changePinModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fs-6 fw-bold">Change PIN</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="changePinForm">
+                    <div class="mb-3">
+                        <label class="form-label small text-muted">Current PIN</label>
+                        <input type="password" id="currentPin" name="current_code" class="form-control text-center" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small text-muted">New PIN</label>
+                        <input type="password" id="newPin" name="new_code" class="form-control text-center" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100 fw-bold">Update PIN</button>
+                </form>
+            </div>
         </div>
     </div>
 </div>
@@ -231,14 +266,14 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Link AI Payer to System Payer</h5>
+                <h5 class="modal-title">Link AI to System Payer</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <label class="form-label small text-muted">NAME COMING FROM PDF</label>
+                <label class="form-label small text-muted">PDF PAYER NAME</label>
                 <input type="text" id="aiPayerName" class="form-control mb-3 bg-light" readonly>
-                <label class="form-label small text-muted">ASSIGN TO SYSTEM PAYER</label>
-                <input class="form-control" list="payersDataList" id="mapToPayerInput" placeholder="Search real payer...">
+                <label class="form-label small text-muted">ASSIGN TO SYSTEM</label>
+                <input class="form-control" list="payersDataList" id="mapToPayerInput" placeholder="Search system payers...">
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-primary w-100" onclick="saveNewMapping()">Save Mapping</button>
@@ -251,7 +286,7 @@
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Your Saved Payer Mappings</h5>
+                <h5 class="modal-title">Saved Payer Mappings</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
@@ -268,11 +303,12 @@
     </div>
 </div>
 
+{% endif %} 
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
     let lastExtractedRawPayer = "";
 
-    // CLEAN NOTIFICATION HELPER
     function showNotification(message, type='success') {
         const container = document.getElementById('toastContainer');
         const id = 'toast-' + Date.now();
@@ -296,7 +332,6 @@
         }, 3000);
     }
 
-    // DEEP JSON SEARCH ALGORITHM
     function deepSearchForKeys(obj, possibleKeys) {
         if (!obj || typeof obj !== 'object') return '';
         for (let key in obj) {
@@ -313,75 +348,42 @@
         return '';
     }
 
-    // STRICT DOB FORMATTING LOGIC
-    function formatDOB(dateStr) {
-        if (!dateStr) return '';
-        let clean = dateStr.replace(/[^\d\/\-.]/g, '').replace(/[\-.]/g, '/');
-        const parts = clean.split('/');
-        if (parts.length === 3) {
-            let m = parts[0].padStart(2, '0');
-            let d = parts[1].padStart(2, '0');
-            let y = parts[2];
-            // Ensure 4 digit year
-            if (y.length === 2) y = parseInt(y) > 30 ? '19' + y : '20' + y;
-            return `${m}/${d}/${y}`;
+    {% if session.get('role') %}
+    document.getElementById('changePinForm')?.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        try {
+            const response = await fetch('/change-code', { method: 'POST', body: formData });
+            const data = await response.json();
+            if (data.success) {
+                showNotification(data.message, 'success');
+                const modal = bootstrap.Modal.getInstance(document.getElementById('changePinModal'));
+                modal.hide();
+                this.reset();
+            } else {
+                showNotification(data.error, 'danger');
+            }
+        } catch (err) {
+            showNotification('Error connecting to server', 'danger');
         }
-        return clean; 
-    }
+    });
 
-    // Check if the user edits the DOB box manually to enforce format
-    const dobInput = document.getElementById('dob');
-    if (dobInput) {
-        dobInput.addEventListener('blur', function(e) {
-            e.target.value = formatDOB(e.target.value);
-            checkFormReadiness();
-        });
-    }
-
-    // FORM READINESS CHECKER (Disables button if missing MemberID or Payer)
-    function checkFormReadiness() {
-        const mid = document.getElementById('memberId').value.trim();
-        const pcode = document.getElementById('hiddenPayerCode').value.trim();
-        const btn = document.getElementById('verifyBtn');
-        
-        if (mid && pcode) { 
-            btn.disabled = false; 
-        } else { 
-            btn.disabled = true; 
-        }
-    }
-
-    // Attach listener to Member ID so it checks when typing
-    const memberIdInput = document.getElementById('memberId');
-    if (memberIdInput) {
-        memberIdInput.addEventListener('input', checkFormReadiness);
-    }
-
-    // 1. PAYER AUTOCOMPLETE LOGIC
     const payerInput = document.getElementById('payerDisplayInput');
     if (payerInput) {
         payerInput.addEventListener('input', function() {
             const val = this.value;
             const hiddenInput = document.getElementById('hiddenPayerCode');
-            const previewSpan = document.getElementById('selectedCodeSpan');
             if (val && val.includes(' - ')) {
-                const parts = val.split(' - ');
-                const code = parts[parts.length - 1]; 
-                hiddenInput.value = code; previewSpan.innerText = code;
-                previewSpan.className = "fw-bold text-success";
+                hiddenInput.value = val.split(' - ').pop();
             } else {
-                hiddenInput.value = val; previewSpan.innerText = val || "None";
-                previewSpan.className = "fw-bold text-muted";
+                hiddenInput.value = val; 
             }
-            checkFormReadiness(); // Check button status when payer changes
         });
     }
 
-    // 2. BULLETPROOF DATA POPULATION
     async function handleReferralUpload(input) {
         const file = input.files[0]; if (!file) return;
         const status = document.getElementById('uploadStatus');
-        const jsonOutput = document.getElementById('extractedJsonOutput');
         status.innerHTML = '<span class="text-primary"><div class="spinner-border spinner-border-sm" role="status"></div> AI Processing...</span>';
         const formData = new FormData(); formData.append('file', file);
 
@@ -391,37 +393,22 @@
             
             document.getElementById('gemini_json_raw').value = JSON.stringify(data);
             document.getElementById('pdfDataDisplay').style.display = 'block';
-            jsonOutput.innerHTML = syntaxHighlight(data);
+            document.getElementById('extractedJsonOutput').innerHTML = syntaxHighlight(data);
 
             if (data.error) { 
                 status.innerHTML = `<span class="text-danger">❌ ${data.error}</span>`; 
-                showNotification("Extraction Failed", "danger");
-            } 
-            else {
+            } else {
                 const form = data.form_population_data || {};
-
-                const fnKeys = ['first_name', 'firstname', 'patient_first_name', 'patient_name', 'patientname'];
+                const fnKeys = ['first_name', 'firstname', 'patient_first_name'];
                 const lnKeys = ['last_name', 'lastname', 'patient_last_name'];
-                const dobKeys = ['dob', 'date_of_birth', 'dateofbirth', 'birthdate', 'birth_date', 'patient_dob'];
-                const idKeys = ['member_id', 'memberid', 'subscriber_id', 'subscriberid', 'policy_number', 'patient_subscriber_no', 'patient_ssn'];
-                const payerKeys = ['payer_name', 'payername', 'insurance_name', 'insurance_company', 'payer', 'patient_insurance', 'insurance'];
+                const payerKeys = ['payer_name', 'payername', 'insurance_name', 'insurance_company'];
 
-                let fName = form.first_name || deepSearchForKeys(data, fnKeys);
-                if (fName.includes(" ")) fName = fName.split(" ")[0]; 
-                document.getElementById('firstName').value = fName;
+                document.getElementById('firstName').value = form.first_name || deepSearchForKeys(data, fnKeys) || '';
+                document.getElementById('lastName').value = form.last_name || deepSearchForKeys(data, lnKeys) || '';
+                document.getElementById('dob').value = form.dob || '';
+                document.getElementById('memberId').value = form.member_id || '';
 
-                let lName = form.last_name || deepSearchForKeys(data, lnKeys);
-                if (!lName && deepSearchForKeys(data, fnKeys).includes(" ")) {
-                    let full = deepSearchForKeys(data, fnKeys);
-                    lName = full.split(" ").slice(1).join(" "); 
-                }
-                document.getElementById('lastName').value = lName;
-
-                let rawDob = form.dob || deepSearchForKeys(data, dobKeys);
-                document.getElementById('dob').value = formatDOB(rawDob); // Force strict format here
-                document.getElementById('memberId').value = form.member_id || deepSearchForKeys(data, idKeys);
-
-                lastExtractedRawPayer = form.payer_name || deepSearchForKeys(data, payerKeys);
+                lastExtractedRawPayer = form.payer_name || deepSearchForKeys(data, payerKeys) || '';
                 const rawName = lastExtractedRawPayer.toLowerCase().trim();
                 const mappings = JSON.parse(localStorage.getItem('payer_mappings') || '{}');
                 const pBox = document.getElementById('payerDisplayInput');
@@ -444,21 +431,15 @@
                     pBox.dispatchEvent(new Event('input')); 
                 }
                 status.innerText = "✅ Done! Form filled.";
-                checkFormReadiness(); // Activate the button
             }
-        } catch (err) { 
-            status.innerText = "❌ Error connecting to server."; 
-            console.error(err);
-            showNotification("Connection Error", "danger");
-        }
+        } catch (err) { status.innerText = "❌ Error connecting."; }
     }
 
-    // 3. MAPPING DB MANAGEMENT
     function saveNewMapping() {
         const aiName = document.getElementById('aiPayerName').value.toLowerCase().trim();
         const sysVal = document.getElementById('mapToPayerInput').value;
         if (!sysVal || aiName.includes("no pdf") || aiName === "") {
-            showNotification("Please select a valid system payer first.", "danger");
+            showNotification("Please select system payer.", "danger");
             return;
         }
         let mappings = JSON.parse(localStorage.getItem('payer_mappings') || '{}');
@@ -473,7 +454,7 @@
         const modalInstance = bootstrap.Modal.getInstance(modalEl);
         if(modalInstance) modalInstance.hide();
         
-        showNotification("Mapping Saved Successfully!", "success");
+        showNotification("Mapping Saved!", "success");
     }
 
     function viewAllMappings() {
@@ -504,31 +485,35 @@
     }
 
     function openMappingModal() {
-        document.getElementById('aiPayerName').value = lastExtractedRawPayer || "No PDF uploaded yet";
+        document.getElementById('aiPayerName').value = lastExtractedRawPayer || "No PDF yet";
         const modalEl = document.getElementById('mappingModal');
         const modalInstance = new bootstrap.Modal(modalEl);
         modalInstance.show();
     }
-
+    
     function syntaxHighlight(j) {
         if (typeof j !== 'string') j = JSON.stringify(j, null, 2);
         return j.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
                 .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, m => {
-                    let c = 'json-number';
-                    if (/^"/.test(m)) c = /:$/.test(m) ? 'json-key' : 'json-string';
-                    return `<span class="${c}">${m}</span>`;
+                    let cls = 'json-number';
+                    if (/^"/.test(m)) {
+                        cls = /:$/.test(m) ? 'json-key' : 'json-string';
+                    } else if (/true|false/.test(m)) {
+                        cls = 'json-boolean';
+                    } else if (/null/.test(m)) {
+                        cls = 'json-null';
+                    }
+                    return `<span class="${cls}">${m}</span>`;
                 });
     }
 
-    // --- RESTORES AI JSON DISPLAY AFTER SUBMIT ---
     document.addEventListener("DOMContentLoaded", function() {
         {% if data and data.full_json %}
             const rawJsonFromApi = {{ data.full_json | tojson }};
             const apiJsonBox = document.getElementById('jsonOutput');
             if (apiJsonBox) apiJsonBox.innerHTML = syntaxHighlight(rawJsonFromApi);
         {% endif %}
-        
-        // Use Jinja to inject string payload securely into javascript to avoid HTML breaking
+
         {% if form_data and form_data.get('gemini_json_raw') %}
             try {
                 const rawGeminiStr = {{ form_data.get('gemini_json_raw') | tojson | safe }};
@@ -537,16 +522,15 @@
                     document.getElementById('extractedJsonOutput').innerHTML = syntaxHighlight(parsedGemini);
                     document.getElementById('pdfDataDisplay').style.display = 'block';
                     
-                    const payerKeys = ['payer_name', 'payername', 'insurance_name', 'insurance_company', 'payer', 'patient_insurance', 'insurance'];
+                    const payerKeys = ['payer_name', 'payername', 'insurance_name'];
                     lastExtractedRawPayer = parsedGemini.form_population_data?.payer_name || deepSearchForKeys(parsedGemini, payerKeys) || "";
                 }
             } catch(e) {
-                console.error("Failed to parse restored Gemini JSON", e);
+                console.error("Failed to parse Gemini JSON", e);
             }
         {% endif %}
-        
-        checkFormReadiness();
     });
+    {% endif %}
 </script>
 </body>
 </html>
