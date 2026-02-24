@@ -19,8 +19,8 @@
         }
         body { background-color: var(--bg-dark); color: var(--text-main); font-family: 'Inter', sans-serif; overflow-x: hidden; }
         
-        /* --- VISIBILITY FIXES: FORCE WHITE TEXT --- */
-        h1, h2, h3, h4, h5, h6, p, label, span, div, table, th, td, button { color: var(--text-main); }
+        /* VISIBILITY FIXES */
+        h1, h2, h3, h4, h5, h6, p, label, span, div, table, th, td, button, input { color: var(--text-main) !important; }
         .text-muted { color: #8b949e !important; }
         .text-danger { color: #f85149 !important; }
         .text-success { color: #3fb950 !important; }
@@ -28,7 +28,6 @@
         .text-white { color: white !important; }
         .text-info { color: #58a6ff !important; }
 
-        /* FIX INPUTS & AUTOFILL (Prevents Black Text) */
         .form-control, .form-select { 
             background-color: #0d1117 !important; 
             border-color: var(--border-dark); 
@@ -36,24 +35,11 @@
             padding: 12px;
         }
         .form-control::placeholder { color: #6e7681 !important; }
-        .form-control:focus { 
-            background-color: #0d1117 !important; 
-            color: white !important; 
-            border-color: var(--accent-blue); 
-            box-shadow: 0 0 0 3px rgba(31, 111, 235, 0.3); 
-        }
-        
-        /* WEB KIT AUTOFILL HACK */
-        input:-webkit-autofill,
-        input:-webkit-autofill:hover, 
-        input:-webkit-autofill:focus, 
-        input:-webkit-autofill:active{
+        input:-webkit-autofill {
             -webkit-box-shadow: 0 0 0 30px #0d1117 inset !important;
             -webkit-text-fill-color: white !important;
-            transition: background-color 5000s ease-in-out 0s;
         }
 
-        /* SIDEBAR */
         .sidebar {
             width: var(--sidebar-width); height: 100vh; position: fixed; top: 0; left: 0;
             background-color: var(--card-dark); border-right: 1px solid var(--border-dark);
@@ -69,22 +55,18 @@
         .user-info { display: flex; align-items: center; margin-bottom: 15px; color: white; }
         .avatar { width: 36px; height: 36px; background: #21262d; color: var(--accent-blue); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; margin-right: 12px; flex-shrink: 0; border: 1px solid var(--border-dark); }
 
-        /* MAIN CONTENT */
         .main-content { margin-left: var(--sidebar-width); padding: 30px; }
         .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
         .page-title { font-size: 1.8rem; font-weight: 700; color: white; margin: 0; letter-spacing: -0.5px; }
         
-        /* CARDS */
         .custom-card { background-color: var(--card-dark); border: 1px solid var(--border-dark); border-radius: 12px; padding: 25px; margin-bottom: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
         
-        /* ACTION BAR */
         .action-bar { display: flex; gap: 15px; align-items: center; margin-top: 20px;}
         .btn-primary-custom { background-color: var(--accent-blue); border: none; padding: 10px 24px; font-weight: 600; border-radius: 8px; color: white !important; text-decoration: none; display: inline-flex; align-items: center; transition: 0.2s; }
         .btn-primary-custom:hover { background-color: #1a5cbf; transform: translateY(-1px); }
         .btn-secondary-custom { background-color: transparent; border: 1px solid var(--border-dark); color: var(--text-main) !important; padding: 10px 24px; font-weight: 600; border-radius: 8px; transition: 0.2s; }
         .btn-secondary-custom:hover { background-color: var(--border-dark); color: white !important; }
 
-        /* PATIENT TABLE */
         .patient-row {
             display: flex; align-items: center; padding: 18px 20px; border-bottom: 1px solid var(--border-dark);
             transition: background 0.2s; font-size: 0.95rem;
@@ -101,14 +83,12 @@
 
         .status-badge { font-weight: bold; font-family: monospace; font-size: 1.2em; }
 
-        /* MODAL OVERRIDES */
         .modal-content { background-color: #161b22; border: 1px solid var(--border-dark); color: white !important; box-shadow: 0 20px 50px rgba(0,0,0,0.5); border-radius: 12px; }
         .modal-header { border-bottom: 1px solid var(--border-dark); padding: 20px 25px; }
         .modal-footer { border-top: 1px solid var(--border-dark); padding: 20px 25px; }
         .modal-body { padding: 25px; }
         .btn-close { filter: invert(1); opacity: 0.7; }
         
-        /* MAPPING BUTTONS */
         .btn-mapping {
             background: #21262d; color: var(--text-muted); border: 1px solid var(--border-dark);
             border-radius: 6px; width: 40px; height: 40px;
@@ -117,11 +97,15 @@
         }
         .btn-mapping:hover { background: var(--accent-blue); color: white; border-color: var(--accent-blue); }
 
-        /* CONFIRM MODAL */
         .modal-confirm-icon { color: #d29922; font-size: 3rem; margin-bottom: 15px; display: block; }
         
-        /* LOGIN OVERRIDE */
         .login-wrapper { height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--bg-dark); }
+        
+        @keyframes fadeInRow {
+            from { background-color: rgba(31, 111, 235, 0.2); opacity: 0; transform: translateY(-5px); }
+            to { background-color: transparent; opacity: 1; transform: translateY(0); }
+        }
+        .animate-row { animation: fadeInRow 0.8s ease forwards; }
     </style>
 </head>
 <body>
@@ -167,19 +151,17 @@
             <div class="d-flex align-items-center gap-3">
                 <div class="text-muted small">
                     <i class="bi bi-database me-2"></i>
-                    {% if patients %} {{ patients|length }} Records {% else %} 0 Records {% endif %}
+                    <span id="recordCount">{% if patients %} {{ patients|length }} {% else %} 0 {% endif %} Records</span>
                 </div>
-                {% if patients %}
                 <button class="btn btn-danger btn-sm fw-bold d-flex align-items-center px-3 py-2" onclick="confirmAction('ALL')">
                     <i class="bi bi-trash-fill me-2"></i>Delete All
                 </button>
-                {% endif %}
             </div>
         </div>
 
         <div class="custom-card">
             <h5 class="text-white mb-3">Document Processing</h5>
-            <p class="text-muted small mb-4">Upload patient documents (PDF/Images) for AI extraction or verify manually.</p>
+            <p class="text-muted small mb-4">Upload patient documents (PDF/Images) to be processed one by one.</p>
             <div class="action-bar">
                 <button class="btn btn-primary-custom" onclick="document.getElementById('batchInput').click()">
                     <i class="bi bi-cloud-upload me-2"></i>Upload Documents
@@ -225,9 +207,9 @@
                     </div>
                     
                     <div class="col-status">
-                        {% if p.status == 'verified' %} <span class="status-badge text-green" title="Verified">d</span>
-                        {% elif p.status == 'error' %} <span class="status-badge text-red" title="Error">x</span>
-                        {% else %} <span class="status-badge text-yellow" title="Needs Mapping">-</span> {% endif %}
+                        {% if p.status == 'verified' %} <span class="status-badge text-success" title="Verified">d</span>
+                        {% elif p.status == 'error' %} <span class="status-badge text-danger" title="Error">x</span>
+                        {% else %} <span class="status-badge text-warning" title="Needs Mapping">-</span> {% endif %}
                     </div>
                     
                     <div class="col-fin">{{ p.copay }}</div>
@@ -249,7 +231,7 @@
                     </div>
                 </div>
                 {% else %}
-                <div class="p-5 text-center text-muted">
+                <div id="emptyStateMsg" class="p-5 text-center text-muted">
                     <i class="bi bi-inbox fs-1 d-block mb-3 opacity-50"></i>
                     <p>No patient records found.</p>
                     <small>Upload documents to populate this list.</small>
@@ -259,12 +241,11 @@
         </div>
     </div>
 
+    <!-- Modals (Confirm, Pin, Manual, Mapping, View Mappings) Remain Exactly the Same -->
     <div class="modal fade" id="confirmModal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered modal-sm">
             <div class="modal-content text-center p-4">
-                <div class="modal-confirm-icon">
-                    <i class="bi bi-exclamation-triangle-fill"></i>
-                </div>
+                <div class="modal-confirm-icon"><i class="bi bi-exclamation-triangle-fill"></i></div>
                 <h5 class="text-white mb-2 fw-bold">Are you sure?</h5>
                 <p class="text-muted small mb-4" id="confirmText">This action cannot be undone.</p>
                 <div class="d-flex justify-content-center gap-3">
@@ -334,7 +315,6 @@
                                     </button>
                                     <div class="flex-grow-1 position-relative">
                                         <input list="payers" name="payerDisplayInput" class="form-control" placeholder="Start typing payer name..." id="payerInput" autocomplete="off" required>
-                                        <i class="bi bi-search position-absolute top-50 end-0 translate-middle-y me-3 text-muted"></i>
                                         <input type="hidden" name="payerCode" id="payerCode">
                                         <datalist id="payers">
                                             {% for payer in payers %}
@@ -423,33 +403,85 @@
         setTimeout(() => { document.getElementById(id)?.remove(); }, 3000);
     }
 
+    // NEW SEQUENTIAL PROCESSOR
     async function handleBatch(input) {
-        if (!input.files || input.files.length === 0) return; 
+    if (!input.files || input.files.length === 0) return; 
+    
+    const spinner = document.getElementById('uploadSpinner');
+    const patientList = document.getElementById('patientList');
+    const emptyState = document.getElementById('emptyStateMsg');
+    const recordCountSpan = document.getElementById('recordCount');
+    
+    spinner.style.display = 'flex';
+    if (emptyState) emptyState.style.display = 'none';
+
+    for (let i = 0; i < input.files.length; i++) {
+        const file = input.files[i];
         
-        // MANUALLY SHOW SPINNER
-        const spinner = document.getElementById('uploadSpinner');
-        spinner.style.display = 'flex';
+        // Update status for the specific file
+        spinner.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> Processing ${i+1}/${input.files.length}: ${file.name}`;
         
         const formData = new FormData();
-        for (let i = 0; i < input.files.length; i++) formData.append('files', input.files[i]);
+        formData.append('file', file);
         
         try {
-            const res = await fetch('/batch-upload', { method: 'POST', body: formData });
+            const res = await fetch('/upload-single', { method: 'POST', body: formData });
             const data = await res.json();
-            if (data.success) window.location.reload(); 
-            else {
-                showNotification("Upload failed", "danger");
-                spinner.style.display = 'none';
+            
+            if (data.success && data.patient) {
+                const p = data.patient;
+                
+                // Determine Status Badge
+                let badge = '<span class="status-badge text-warning" title="Needs Mapping">-</span>';
+                if (p.status === 'verified') badge = '<span class="status-badge text-success" title="Verified">d</span>';
+                else if (p.status === 'error') badge = '<span class="status-badge text-danger" title="Error">x</span>';
+                
+                // Determine Action Button
+                let actionBtn = p.status === 'mapping_needed' 
+                    ? `<button class="btn btn-sm btn-outline-warning d-flex align-items-center gap-1" onclick="openMappingModal('${p.payer_name}')"><i class="bi bi-link-45deg"></i> Map</button>`
+                    : `<button class="btn btn-sm btn-primary-custom py-1 px-3" style="font-size: 0.8rem;">Active</button>`;
+
+                const rowHtml = `
+                <div class="patient-row animate-row">
+                    <div class="col-patient ps-2">
+                        <div class="avatar">${p.first_name[0]}${p.last_name[0]}</div>
+                        <span class="text-white fw-bold">${p.first_name} ${p.last_name}</span>
+                    </div>
+                    <div class="col-dob">${p.dob || ''}</div>
+                    <div class="col-payer" title="${p.payer_name}">${p.payer_name}</div>
+                    <div class="col-status">${badge}</div>
+                    <div class="col-fin">${p.copay}</div>
+                    <div class="col-fin">${p.coins}</div>
+                    <div class="col-fin">${p.deductible_rem}</div>
+                    <div class="col-fin">${p.oop_rem}</div>
+                    <div class="col-actions pe-2">
+                        ${actionBtn}
+                        <button class="btn btn-sm text-danger opacity-75" onclick="confirmAction(${p.id})">
+                            <i class="bi bi-trash-fill fs-5"></i>
+                        </button>
+                    </div>
+                </div>`;
+                
+                patientList.insertAdjacentHTML('afterbegin', rowHtml);
+                showNotification(`${file.name} processed`, "success");
+                
+                // Increment UI Counter
+                let currentTotal = parseInt(recordCountSpan.innerText) || 0;
+                recordCountSpan.innerText = `${currentTotal + 1} Records`;
+            } else {
+                showNotification(`Error ${file.name}: ${data.error}`, "danger");
             }
         } catch (e) {
-            showNotification("System Error", "danger");
-            spinner.style.display = 'none';
+            showNotification(`System Error: ${file.name}`, "danger");
         }
     }
+    
+    spinner.style.display = 'none';
+    input.value = ''; // Allow re-upload of same files
+}
 
-    // CONFIRMATION LOGIC
-    let pendingAction = null;
     let pendingId = null;
+    let pendingAction = null;
 
     function confirmAction(idOrType, context) {
         pendingId = idOrType;
@@ -513,12 +545,11 @@
         });
     }
 
-    // MAPPING LOGIC with MODAL SWITCHING
     function openMappingModal(payerName) {
         const viewModalEl = document.getElementById('viewMappingsModal');
         const viewModal = bootstrap.Modal.getInstance(viewModalEl);
         if (viewModal && viewModalEl.classList.contains('show')) {
-            viewModal.hide(); // Close view list if open
+            viewModal.hide(); 
         }
         document.getElementById('aiPayerName').value = payerName || '';
         new bootstrap.Modal(document.getElementById('mappingModal')).show();
@@ -536,8 +567,8 @@
             });
             const d = await res.json();
             if(d.success) {
-                showNotification("Mapping Saved! Please re-upload.", "success");
-                setTimeout(() => window.location.reload(), 1000);
+                showNotification("Mapping Saved!", "success");
+                bootstrap.Modal.getInstance(document.getElementById('mappingModal')).hide();
             } else { showNotification(d.error, "danger"); }
         } catch(e) { showNotification("Error saving", "danger"); }
     }
