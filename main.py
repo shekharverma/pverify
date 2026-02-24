@@ -1,117 +1,235 @@
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 import requests
-import time
-from fastapi.middleware.cors import CORSMiddleware
+import json
 import os
-from dotenv import load_dotenv
+import urllib3
+from datetime import datetime
+from werkzeug.utils import secure_filename
+from readpdf import extract_from_referral
+from models import db, User, PayerMapping, Patient 
+from flask_migrate import Migrate
+import concurrent.futures
 
-load_dotenv() # Loads the .env file
-app = FastAPI()
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-# ================= CONFIG =================
-OAUTH_CLIENT_ID = os.environ.get('PVERIFY_OAUTH_CLIENT_ID')
-OAUTH_CLIENT_SECRET = os.environ.get('PVERIFY_OAUTH_CLIENT_SECRET')
-API_CLIENT_ID = os.environ.get('PVERIFY_API_CLIENT_ID')
+_env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+if os.path.isfile(_env_path):
+    with open(_env_path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, _, v = line.partition("=")
+                k, v = k.strip(), v.strip().strip('"').strip("'")
+                if k and k not in os.environ:
+                    os.environ[k] = v
 
-TOKEN_URL = os.environ.get('PVERIFY_TOKEN_URL')
-SUMMARY_URL = os.environ.get('PVERIFY_SUMMARY_URL')
-access_token = None
-token_expiry = 0
+app = Flask(__name__)
+app.secret_key = "super_secret_healthcare_key_change_in_prod" 
 
-origins = [
-    "https://insuranceclaim.urtestsite.com",  # Your Flask frontend domain
-    "http://localhost:5001",                # Local Flask (usually 5000)
-    "http://127.0.0.1:5001/",
-]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,             # Allows specific domains
-    allow_credentials=True,
-    allow_methods=["*"],               # Allows all methods (GET, POST, etc.)
-    allow_headers=["*"],               # Allows all headers
+# ================= DB CONFIGURATION =================
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
+    "DATABASE_URL", 
+    "mysql+mysqlconnector://dev:Admin%401234@10.91.0.128/pverifyDB" 
 )
-# ================= TOKEN =================
-def get_access_token():
-    global access_token, token_expiry
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-    if access_token and time.time() < token_expiry:
-        return access_token
+db.init_app(app)
+migrate = Migrate(app, db)
 
-    response = requests.post(
-        TOKEN_URL,
-       headers={"Content-Type": "application/x-www-form-urlencoded"},
-        data={
-            "Client_Id": OAUTH_CLIENT_ID,
-            "Client_Secret": OAUTH_CLIENT_SECRET,
-            "grant_type": "client_credentials"
-        }
-    )
+with app.app_context():
+    db.create_all()
+    if not User.query.filter_by(access_code='7432').first():
+        db.session.add(User(access_code='7432', role='admin', name='Dr. Amit'))
+        db.session.add(User(access_code='2262', role='provider', name='Provider/PA'))
+        db.session.add(User(access_code='1234', role='checkout', name='Checkout Desk'))
+        db.session.commit()
 
-    if response.status_code != 200:
-        raise Exception(response.text)
+UPLOAD_FOLDER = 'uploads'
+ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'webp'}
 
-    token_data = response.json()
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-    access_token = token_data["access_token"]
-    token_expiry = time.time() + int(token_data["expires_in"]) - 60
+ELIGIBILITY_API_URL = os.environ.get(
+    "ELIGIBILITY_API_URL",
+    "https://api.insuranceclaim.urtestsite.com/api/check-eligibility"
+)
 
-    return access_token
+# ================= HELPER FUNCTIONS =================
 
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-# ================= ELIGIBILITY SUMMARY =================
-@app.post("/api/check-eligibility")
-async def check_eligibility(payload: dict):
-
+def load_payers():
     try:
-        token = get_access_token()
+        with open("payers_output.json", "r", encoding='utf-8') as f:
+            return json.load(f)
+    except Exception:
+        return []
 
-        # Convert payload to EligibilitySummary format
-        converted_payload = {
-            "payerCode": payload["PayerCode"],
+def get_payer_code_by_name(name_to_find):
+    """
+    Looks for a payer code using case-insensitive matching and database mappings.
+    """
+    if not name_to_find:
+        return None
+        
+    name_clean = name_to_find.strip().lower()
+    
+    # 1. Check Database Mappings Table
+    mapping = PayerMapping.query.filter(PayerMapping.pdf_payer_name.ilike(name_clean)).first()
+    if mapping:
+        parts = mapping.system_payer_name.split(' - ')
+        if len(parts) > 1:
+            return parts[-1]
+    
+    # 2. Check for Match in Payers List
+    all_payers = load_payers()
+    for p in all_payers:
+        if p['payerName'].lower() == name_clean:
+            return p['payerCode']
+            
+    return None
 
-            "provider": {
-                "firstName": "",
-                "middleName": "",
-                "lastName": payload["RequestingProvider"]["LastName"],
-                "npi": payload["RequestingProvider"]["NPI"],
-                "pin": ""
-            },
-
-            "subscriber": {
-                "firstName": payload["Subscriber"]["FirstName"],
-                "lastName": payload["Subscriber"]["LastName"],
-                "dob": payload["Subscriber"].get("DOB"),
-                "memberID": payload["Subscriber"]["MemberID"]
-            },
-
-            "dependent": None,
-            "isSubscriberPatient": str(payload["IsSubscriberPatient"]).lower(),
-
-            "doS_StartDate": payload["DOS_StartDate"],
-            "doS_EndDate": payload["DOS_EndDate"],
-
-            "PracticeTypeCode": "3",
-            "PlaceOfService": "11",
-            "IncludeTextResponse": "false"
+def perform_verification(payer_code, member_id, first_name, last_name, dob):
+    try:
+        static_dos = datetime.now().strftime("%m/%d/%Y")
+        payload = {
+            "PayerCode": payer_code,
+            "DOS_StartDate": static_dos,
+            "DOS_EndDate": static_dos,
+            "IsSubscriberPatient": True,
+            "RequestingProvider": {"ProviderType": "Billing", "LastName": "Corium Ventures Pllc", "NPI": "1346553120"},
+            "Subscriber": {"MemberID": member_id, "FirstName": first_name, "LastName": last_name, "DOB": dob}
         }
-        print('converted_payload',converted_payload)
-
-        headers = {
-            "Authorization": f"Bearer {token}",
-            "Client-API-Id": API_CLIENT_ID,
-            "Content-Type": "application/json"
-        }
-
-        response = requests.post(
-            SUMMARY_URL,
-            json=converted_payload,
-            headers=headers
-        )
-        # print(response.json())
-        return response.json()
-
+        response = requests.post(ELIGIBILITY_API_URL, json=payload, verify=False)
+        if response.status_code == 200:
+            api_data = response.json()
+            oop = api_data.get("HBPC_Deductible_OOP_Summary") or {}
+            # Simplified benefit parsing for speed
+            return {
+                "success": True,
+                "payer_name": api_data.get("PayerName", "Unknown"),
+                "benefits": {
+                    "copay": "$0.00", "coins": "0%",
+                    "deductible": (oop.get("IndividualDeductibleRemainingInNet") or {}).get("Value") or "$0.00",
+                    "oop": (oop.get("IndividualOOPRemainingInNet") or {}).get("Value") or "$0.00"
+                }
+            }
+        return {"success": False, "error": f"API Error: {response.status_code}"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return {"success": False, "error": str(e)}
 
+def process_single_file(filepath, app_context_app):
+    with app_context_app.app_context():
+        form = {"first_name": "Manual", "last_name": "Review", "dob": "", "member_id": "", "payer_name": "Unknown Payer"}
+        raw_pdf_payer = "Unknown Payer"
+        
+        try:
+            extraction = extract_from_referral(filepath)
+            if isinstance(extraction, list): extraction = extraction[0] if len(extraction) > 0 else {}
+            if isinstance(extraction, dict) and "error" not in extraction:
+                extracted_form = extraction.get("form_population_data", {})
+                if extracted_form:
+                    form = extracted_form
+                    raw_pdf_payer = form.get("payer_name", "Unknown Payer").strip()
+        except: pass
+        finally:
+            if os.path.exists(filepath): os.remove(filepath)
+
+        system_payer_code = get_payer_code_by_name(raw_pdf_payer)
+
+        new_patient = Patient(
+            first_name=form.get("first_name"), last_name=form.get("last_name"),
+            dob=form.get("dob"), member_id=form.get("member_id"), payer_name=raw_pdf_payer
+        )
+
+        if system_payer_code:
+            verify_result = perform_verification(system_payer_code, form.get("member_id"), form.get("first_name"), form.get("last_name"), form.get("dob"))
+            if verify_result["success"]:
+                new_patient.status = "verified"
+                new_patient.payer_name = verify_result["payer_name"]
+                new_patient.copay = verify_result["benefits"]["copay"]
+                new_patient.coins = verify_result["benefits"]["coins"]
+                new_patient.deductible_rem = verify_result["benefits"]["deductible"]
+                new_patient.oop_rem = verify_result["benefits"]["oop"]
+            else: new_patient.status = "error"
+        else: new_patient.status = "mapping_needed"
+
+        db.session.add(new_patient)
+        db.session.commit()
+        return {"id": new_patient.id}
+
+# ================= ROUTES =================
+
+@app.route('/login', methods=['POST'])
+def login():
+    code = request.form.get('access_code')
+    user = User.query.filter_by(access_code=code).first()
+    if user:
+        session['role'], session['name'], session['current_code'] = user.role, user.name, code
+        return redirect(url_for('index'))
+    return render_template("index.html", login_error="Invalid Access Code")
+
+@app.route('/')
+def index():
+    if not session.get('role'): return render_template("index.html")
+    patients = Patient.query.order_by(Patient.created_at.desc()).all()
+    return render_template("index.html", payers=load_payers(), patients=patients)
+
+@app.route('/manual-add', methods=['POST'])
+def manual_add():
+    if not session.get('role'): return jsonify({"error": "Unauthorized"}), 403
+    form = request.form
+    payer_code = form.get("payerCode")
+    verify_result = perform_verification(payer_code, form.get("memberId"), form.get("firstName"), form.get("lastName"), form.get("dob"))
+    new_patient = Patient(first_name=form.get("firstName"), last_name=form.get("lastName"), dob=form.get("dob"), member_id=form.get("memberId"), payer_name=form.get("payerDisplayInput"))
+    if verify_result["success"]:
+        new_patient.status, new_patient.payer_name = "verified", verify_result["payer_name"]
+        new_patient.copay, new_patient.coins = verify_result["benefits"]["copay"], verify_result["benefits"]["coins"]
+        new_patient.deductible_rem, new_patient.oop_rem = verify_result["benefits"]["deductible"], verify_result["benefits"]["oop"]
+    else: new_patient.status = "error"
+    db.session.add(new_patient); db.session.commit()
+    return redirect(url_for('index'))
+
+@app.route('/delete-patient/<int:id>', methods=['POST'])
+def delete_patient(id):
+    p = Patient.query.get(id)
+    if p: db.session.delete(p); db.session.commit(); return jsonify({"success": True})
+    return jsonify({"error": "Not found"}), 404
+
+@app.route('/delete-all-patients', methods=['POST'])
+def delete_all_patients():
+    db.session.query(Patient).delete(); db.session.commit(); return jsonify({"success": True})
+
+@app.route('/batch-upload', methods=['POST'])
+def batch_upload():
+    files = request.files.getlist('files')
+    saved_paths = [os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(f.filename)) for f in files if f and allowed_file(f.filename)]
+    for f, p in zip(files, saved_paths): f.save(p)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+        futures = [executor.submit(process_single_file, path, app) for path in saved_paths]
+        concurrent.futures.wait(futures)
+    return jsonify({"success": True})
+
+@app.route('/api/mappings', methods=['GET', 'POST', 'DELETE'])
+def handle_mappings():
+    if request.method == 'GET':
+        return jsonify({m.pdf_payer_name: m.system_payer_name for m in PayerMapping.query.all()})
+    data = request.json
+    pdf_name = data.get('pdf_name', '').strip().lower()
+    if request.method == 'POST':
+        mapping = PayerMapping.query.filter_by(pdf_payer_name=pdf_name).first()
+        if mapping: mapping.system_payer_name = data.get('system_name')
+        else: db.session.add(PayerMapping(pdf_payer_name=pdf_name, system_payer_name=data.get('system_name')))
+    if request.method == 'DELETE':
+        mapping = PayerMapping.query.filter_by(pdf_payer_name=pdf_name).first()
+        if mapping: db.session.delete(mapping)
+    db.session.commit(); return jsonify({"success": True})
+
+@app.route('/logout')
+def logout():
+    session.clear(); return redirect(url_for('index'))
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8081)

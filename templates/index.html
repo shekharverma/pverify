@@ -3,534 +3,574 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>pVerify Eligibility Portal</title>
+    <title>MedBill Pro</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { background: #f0f2f5; font-family: 'Inter', sans-serif; color: #333; }
-        .container { max-width: 1100px; } /* Slightly wider for 4 slots */
-        .card { border: none; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.06); background: #fff; overflow: hidden; }
-        .card-header-primary { background: linear-gradient(135deg, #0d6efd 0%, #0043a8 100%); color: white; font-weight: 600; padding: 1.2rem; }
-        .upload-area { border: 2px dashed #dee2e6; border-radius: 10px; background-color: #f8f9fa; transition: all 0.2s ease; cursor: pointer; }
-        .upload-area:hover { border-color: #0d6efd; background-color: #f1f4f9; }
+        :root {
+            --bg-dark: #0d1117;
+            --card-dark: #161b22;
+            --border-dark: #30363d;
+            --text-main: #e6edf3;
+            --text-muted: #8b949e;
+            --accent-blue: #1f6feb;
+            --sidebar-width: 260px;
+        }
+        body { background-color: var(--bg-dark); color: var(--text-main); font-family: 'Inter', sans-serif; overflow-x: hidden; }
         
+        /* --- VISIBILITY FIXES: FORCE WHITE TEXT --- */
+        h1, h2, h3, h4, h5, h6, p, label, span, div, table, th, td, button { color: var(--text-main); }
+        .text-muted { color: #8b949e !important; }
+        .text-danger { color: #f85149 !important; }
+        .text-success { color: #3fb950 !important; }
+        .text-warning { color: #d29922 !important; }
+        .text-white { color: white !important; }
+        .text-info { color: #58a6ff !important; }
+
+        /* FIX INPUTS & AUTOFILL (Prevents Black Text) */
+        .form-control, .form-select { 
+            background-color: #0d1117 !important; 
+            border-color: var(--border-dark); 
+            color: white !important; 
+            padding: 12px;
+        }
+        .form-control::placeholder { color: #6e7681 !important; }
+        .form-control:focus { 
+            background-color: #0d1117 !important; 
+            color: white !important; 
+            border-color: var(--accent-blue); 
+            box-shadow: 0 0 0 3px rgba(31, 111, 235, 0.3); 
+        }
+        
+        /* WEB KIT AUTOFILL HACK */
+        input:-webkit-autofill,
+        input:-webkit-autofill:hover, 
+        input:-webkit-autofill:focus, 
+        input:-webkit-autofill:active{
+            -webkit-box-shadow: 0 0 0 30px #0d1117 inset !important;
+            -webkit-text-fill-color: white !important;
+            transition: background-color 5000s ease-in-out 0s;
+        }
+
+        /* SIDEBAR */
+        .sidebar {
+            width: var(--sidebar-width); height: 100vh; position: fixed; top: 0; left: 0;
+            background-color: var(--card-dark); border-right: 1px solid var(--border-dark);
+            padding: 25px 20px; display: flex; flex-direction: column; z-index: 1000;
+        }
+        .brand { font-size: 1.3rem; font-weight: 700; color: white; margin-bottom: 40px; display: flex; align-items: center; gap: 10px; }
+        .nav-link { color: var(--text-muted) !important; padding: 12px 15px; border-radius: 8px; margin-bottom: 8px; transition: all 0.2s; display: flex; align-items: center; text-decoration: none; cursor: pointer; font-weight: 500; }
+        .nav-link i { margin-right: 12px; font-size: 1.2rem; }
+        .nav-link:hover, .nav-link.active { background-color: rgba(31, 111, 235, 0.15); color: var(--accent-blue) !important; }
+        .nav-link.active { font-weight: 600; }
+        
+        .user-section { margin-top: auto; border-top: 1px solid var(--border-dark); padding-top: 20px; }
+        .user-info { display: flex; align-items: center; margin-bottom: 15px; color: white; }
+        .avatar { width: 36px; height: 36px; background: #21262d; color: var(--accent-blue); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; margin-right: 12px; flex-shrink: 0; border: 1px solid var(--border-dark); }
+
+        /* MAIN CONTENT */
+        .main-content { margin-left: var(--sidebar-width); padding: 30px; }
+        .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .page-title { font-size: 1.8rem; font-weight: 700; color: white; margin: 0; letter-spacing: -0.5px; }
+        
+        /* CARDS */
+        .custom-card { background-color: var(--card-dark); border: 1px solid var(--border-dark); border-radius: 12px; padding: 25px; margin-bottom: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+        
+        /* ACTION BAR */
+        .action-bar { display: flex; gap: 15px; align-items: center; margin-top: 20px;}
+        .btn-primary-custom { background-color: var(--accent-blue); border: none; padding: 10px 24px; font-weight: 600; border-radius: 8px; color: white !important; text-decoration: none; display: inline-flex; align-items: center; transition: 0.2s; }
+        .btn-primary-custom:hover { background-color: #1a5cbf; transform: translateY(-1px); }
+        .btn-secondary-custom { background-color: transparent; border: 1px solid var(--border-dark); color: var(--text-main) !important; padding: 10px 24px; font-weight: 600; border-radius: 8px; transition: 0.2s; }
+        .btn-secondary-custom:hover { background-color: var(--border-dark); color: white !important; }
+
+        /* PATIENT TABLE */
+        .patient-row {
+            display: flex; align-items: center; padding: 18px 20px; border-bottom: 1px solid var(--border-dark);
+            transition: background 0.2s; font-size: 0.95rem;
+        }
+        .patient-row:last-child { border-bottom: none; }
+        .patient-row:hover { background-color: rgba(255,255,255,0.03); }
+        
+        .col-patient { flex: 0 0 250px; display: flex; align-items: center; }
+        .col-dob { flex: 0 0 120px; color: var(--text-muted); }
+        .col-payer { flex: 1; min-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 20px; color: var(--text-muted); }
+        .col-status { flex: 0 0 60px; text-align: center; }
+        .col-fin { flex: 0 0 90px; text-align: center; font-weight: 600; color: white; }
+        .col-actions { flex: 0 0 160px; display: flex; justify-content: flex-end; gap: 12px; align-items: center; }
+
+        .status-badge { font-weight: bold; font-family: monospace; font-size: 1.2em; }
+
+        /* MODAL OVERRIDES */
+        .modal-content { background-color: #161b22; border: 1px solid var(--border-dark); color: white !important; box-shadow: 0 20px 50px rgba(0,0,0,0.5); border-radius: 12px; }
+        .modal-header { border-bottom: 1px solid var(--border-dark); padding: 20px 25px; }
+        .modal-footer { border-top: 1px solid var(--border-dark); padding: 20px 25px; }
+        .modal-body { padding: 25px; }
+        .btn-close { filter: invert(1); opacity: 0.7; }
+        
+        /* MAPPING BUTTONS */
         .btn-mapping {
-            background: #6c757d; color: white; border: none;
-            border-radius: 50%; width: 32px; height: 32px;
+            background: #21262d; color: var(--text-muted); border: 1px solid var(--border-dark);
+            border-radius: 6px; width: 40px; height: 40px;
             display: flex; align-items: center; justify-content: center;
             transition: 0.2s; cursor: pointer;
         }
-        .btn-mapping:hover { background: #0d6efd; transform: scale(1.1); }
+        .btn-mapping:hover { background: var(--accent-blue); color: white; border-color: var(--accent-blue); }
 
-        .json-container { background-color: #1e1e1e; color: #d4d4d4; padding: 20px; border-radius: 8px; font-family: monospace; font-size: 0.85rem; max-height: 400px; overflow-y: auto; white-space: pre-wrap; word-break: break-word; border: 1px solid #ddd; }
-        .json-key { color: #9cdcfe; }
-        .json-string { color: #ce9178; }
-        .json-number { color: #b5cea8; }
-        .json-boolean { color: #569cd6; }
-        .json-null { color: #569cd6; }
+        /* CONFIRM MODAL */
+        .modal-confirm-icon { color: #d29922; font-size: 3rem; margin-bottom: 15px; display: block; }
         
-        /* FIXED DARK ROW DESIGN */
-        .dark-queue-container { background-color: #161b22; border-radius: 8px; padding: 5px; margin-top: 20px; box-shadow: 0 8px 24px rgba(0,0,0,0.2); }
-        .dark-row { 
-            display: flex; 
-            align-items: center; 
-            padding: 16px 15px; 
-            font-size: 13px; 
-            color: #c9d1d9; 
-            width: 100%;
-        }
-        .avatar-circle {
-            width: 32px; height: 32px; border-radius: 50%; background-color: #1f3a5f; color: #58a6ff; 
-            display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 11px; margin-right: 12px; flex-shrink: 0;
-        }
-        .text-green-d { color: #3fb950; font-weight: 700; font-family: monospace; font-size: 14px; }
-        .badge-medigap { background-color: #0b57d0; color: white; padding: 2px 8px; border-radius: 12px; font-size: 10px; margin-left: 5px; font-weight: 600; }
-        .btn-active-dark { background-color: #0b57d0; color: white; border: none; border-radius: 4px; padding: 5px 12px; font-size: 11px; font-weight: 600; }
-        .icon-btn-dark { background: none; border: none; color: #8b949e; margin-left: 10px; font-size: 14px; cursor: pointer; }
-        .nav-bar-custom { background: white; padding: 10px 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 30px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;}
-
-        /* COLUMN WIDTH CONTROL */
-        .col-patient { flex: 0 0 180px; display: flex; align-items: center; overflow: hidden; }
-        .col-dob { flex: 0 0 90px; }
-        .col-payer { flex: 1 1 180px; padding-right: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .col-status-d { flex: 0 0 30px; text-align: center; }
-        .col-fin { flex: 0 0 85px; text-align: center; font-weight: 700; color: #ffffff; }
-        .col-actions { flex: 0 0 160px; text-align: right; display: flex; justify-content: flex-end; align-items: center; }
-        
+        /* LOGIN OVERRIDE */
+        .login-wrapper { height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--bg-dark); }
     </style>
 </head>
 <body>
 
-<div id="toastContainer" style="position: fixed; top: 20px; right: 20px; z-index: 1060;"></div>
-
 {% if not session.get('role') %}
-<div class="container mt-5 pt-5" style="max-width: 450px;">
-    <div class="card p-5 text-center shadow-lg border-0" style="border-radius: 15px;">
-        <h4 class="fw-bold mb-2">Practice Login</h4>
-        <p class="text-muted mb-4 small">Please enter your assigned access PIN</p>
-        <form method="POST" action="/login">
-            <input type="password" name="access_code" class="form-control form-control-lg mb-3 text-center fs-3" placeholder="••••" required autofocus>
-            <button type="submit" class="btn btn-primary btn-lg w-100 fw-bold">Enter System</button>
-            {% if login_error %}
-                <div class="alert alert-danger mt-3 small p-2">{{ login_error }}</div>
-            {% endif %}
-        </form>
+    <div class="login-wrapper">
+        <div class="custom-card p-5 text-center" style="width: 420px;">
+            <h3 class="text-white mb-3"><i class="bi bi-shield-lock-fill me-2"></i>MedBill Pro</h3>
+            <p class="text-muted mb-4">Enter your secure access PIN</p>
+            <form method="POST" action="/login">
+                <input type="password" name="access_code" class="form-control form-control-lg text-center mb-4" placeholder="••••" style="letter-spacing: 5px; font-size: 1.5rem;" required autofocus>
+                <button class="btn btn-primary-custom w-100 justify-content-center py-3">Login System</button>
+                {% if login_error %}<div class="text-danger mt-3 small"><i class="bi bi-exclamation-circle me-1"></i> {{ login_error }}</div>{% endif %}
+            </form>
+        </div>
     </div>
-</div>
 {% else %}
 
-<div class="container py-4">
-    <div class="nav-bar-custom">
-        <div>
-            <span class="fw-bold text-primary"><i class="bi bi-shield-check me-2"></i>pVerify Gateway</span>
-            <span class="ms-3 badge bg-secondary">Role: {{ session.role | upper }}</span>
-            <span class="ms-2 small text-muted">User: {{ session.name }}</span>
-        </div>
-        <div>
-            <button class="btn btn-sm btn-outline-secondary me-2" data-bs-toggle="modal" data-bs-target="#changePinModal">
-                <i class="bi bi-key-fill me-1"></i>Change PIN
-            </button>
-            <a href="/logout" class="btn btn-sm btn-outline-danger">Logout</a>
+    <div class="sidebar">
+        <div class="brand"><i class="bi bi-box-seam-fill text-primary"></i> MedBill Pro</div>
+        <a href="#" class="nav-link active"><i class="bi bi-people"></i> Patients</a>
+        <a href="#" class="nav-link"><i class="bi bi-list-task"></i> Encounter Queue</a>
+        <a href="#" class="nav-link"><i class="bi bi-calculator"></i> Visit Calculator</a>
+        
+        <div class="user-section">
+            <div class="user-info">
+                <div class="avatar">{{ session.name[0] }}</div>
+                <div>
+                    <div class="fw-bold">{{ session.name }}</div>
+                    <div class="text-muted small" style="font-size: 0.75rem;">{{ session.role|upper }}</div>
+                </div>
+            </div>
+            <a class="nav-link" style="cursor: pointer;" data-bs-toggle="modal" data-bs-target="#changePinModal">
+                <i class="bi bi-key-fill"></i> Change PIN
+            </a>
+            <a href="/logout" class="nav-link text-danger mt-1"><i class="bi bi-box-arrow-left"></i> Logout</a>
         </div>
     </div>
 
-    <div class="card mb-5">
-        <div class="card-header card-header-primary">
-            <h5 class="mb-0">Patient Eligibility Search</h5>
-        </div>
-        <div class="card-body p-4">
-            
-            <div class="upload-area text-center p-4 mb-4" onclick="document.getElementById('pdfInput').click()">
-                <button type="button" class="btn btn-outline-primary fw-bold" onclick="event.stopPropagation(); document.getElementById('pdfInput').click()">
-                    <i class="bi bi-file-earmark-pdf-fill me-2"></i>UPLOAD REFERRAL FILE
+    <div class="main-content">
+        <div class="page-header">
+            <h1 class="page-title">Patient Management</h1>
+            <div class="d-flex align-items-center gap-3">
+                <div class="text-muted small">
+                    <i class="bi bi-database me-2"></i>
+                    {% if patients %} {{ patients|length }} Records {% else %} 0 Records {% endif %}
+                </div>
+                {% if patients %}
+                <button class="btn btn-danger btn-sm fw-bold d-flex align-items-center px-3 py-2" onclick="confirmAction('ALL')">
+                    <i class="bi bi-trash-fill me-2"></i>Delete All
                 </button>
-                <input type="file" id="pdfInput" accept=".pdf" style="display: none;" onchange="handleReferralUpload(this)">
-                <div id="uploadStatus" class="mt-2 small fw-bold text-primary"></div>
-            </div>
-
-            <form action="/" method="POST" id="verifyForm">
-                <input type="hidden" name="gemini_json_raw" id="gemini_json_raw" value="{{ form_data.get('gemini_json_raw', '') | e }}">
-                
-                <div class="row g-3 mb-4">
-                    <div class="col-md-3">
-                        <label class="form-label">First Name</label>
-                        <input type="text" name="firstName" id="firstName" class="form-control" value="{{ form_data.firstName if form_data else '' }}" >
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Last Name</label>
-                        <input type="text" name="lastName" id="lastName" class="form-control" value="{{ form_data.lastName if form_data else '' }}" >
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Date of Birth</label>
-                        <input type="text" name="dob" id="dob" class="form-control" placeholder="MM/DD/YYYY" value="{{ form_data.dob if form_data else '' }}" >
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Member ID <span class="text-danger">*</span></label>
-                        <input type="text" name="memberId" id="memberId" class="form-control" required value="{{ form_data.memberId if form_data else '' }}">
-                    </div>
-                </div>
-
-                <div class="mb-4">
-                    <div class="d-flex align-items-center mb-2">
-                        <button type="button" class="btn-mapping me-2" onclick="openMappingModal()" title="Manage Payer Mappings">
-                            <i class="bi bi-gear-fill"></i>
-                        </button>
-                        <label class="form-label mb-0">Select Payer</label>
-                        <button type="button" class="btn btn-link btn-sm ms-auto text-decoration-none" onclick="viewAllMappings()">
-                            <i class="bi bi-list-ul me-1"></i>View All Mappings
-                        </button>
-                    </div>
-                    <input class="form-control form-control-lg" list="payersDataList" id="payerDisplayInput" placeholder="Start typing payer name..." autocomplete="off" required value="{{ form_data.get('payerDisplayInput', '') }}">
-                    <input type="hidden" name="payerCode" id="hiddenPayerCode" value="{{ form_data.payerCode if form_data else '' }}" required>
-                    <datalist id="payersDataList">
-                        {% for payer in payers %}
-                            <option value="{{ payer.payerName }} - {{ payer.payerCode }}"></option>
-                        {% endfor %}
-                    </datalist>
-                </div>
-
-                <div class="d-grid mb-4">
-                    <button type="submit" id="verifyBtn" class="btn btn-primary btn-lg">Verify Eligibility</button>
-                </div>
-            </form>
-
-            {% if data %}
-                {% if data.error %}
-                    <div class="alert alert-danger">{{ data.error }}</div>
-                {% else %}
-                <hr>
-                <h6 class="fw-bold text-muted small mt-4 text-uppercase">Encounter Queue Result</h6>
-                
-                <div class="dark-queue-container mb-5">
-                    <div class="dark-row">
-                        <div class="col-patient">
-                            <div class="avatar-circle">
-                                {{ (form_data.firstName[0] if form_data.firstName else '') ~ (form_data.lastName[0] if form_data.lastName else '') | upper }}
-                            </div>
-                            <span class="fw-bold text-white">{{ form_data.firstName }} {{ form_data.lastName }}</span>
-                        </div>
-                        
-                        <div class="col-dob">
-                            {{ form_data.dob }}
-                        </div>
-                        
-                        <div class="col-payer">
-                            {{ data.payer_name }}
-                            {% if 'Medicare' in data.payer_name or 'Medigap' in data.payer_name %}
-                                <span class="badge-medigap">Medigap F</span>
-                            {% elif data.is_hmo %}
-                                <span class="badge-medigap bg-danger">HMO</span>
-                            {% endif %}
-                        </div>
-                        
-                        <div class="col-status-d">
-                            <span class="text-green-d">d</span>
-                        </div>
-                        
-                        <div class="col-fin" title="Specialist Copay">
-                            {% if data.benefits.specialist.copay %}
-                                {{ data.benefits.specialist.copay if '$' in data.benefits.specialist.copay|string else '$' ~ data.benefits.specialist.copay }}
-                            {% else %}$0.00{% endif %}
-                        </div>
-                        
-                        <div class="col-fin" title="Surgical Co-Insurance">
-                            {{ data.benefits.surgical.coins if data.benefits.surgical.coins else '0%' }}
-                        </div>
-
-                        <div class="col-fin" title="Individual Deductible Remaining">
-                            {{ data.benefits.oop.indiv_deduct_rem if data.benefits.oop.indiv_deduct_rem else '$0.00' }}
-                        </div>
-
-                        <div class="col-fin" title="Individual Out-Of-Pocket Remaining">
-                            {{ data.benefits.oop.indiv_oop_rem if data.benefits.oop.indiv_oop_rem else '$0.00' }}
-                        </div>
-                        
-                        <div class="col-actions">
-                            <button class="btn-active-dark">Active</button>
-                            <button class="icon-btn-dark"><i class="bi bi-calculator"></i></button>
-                            <button class="icon-btn-dark"><i class="bi bi-chevron-down"></i></button>
-                            <button class="icon-btn-dark text-danger"><i class="bi bi-trash"></i></button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="row mb-4 mt-5">
-                    <div class="col-12">
-                        <h6 class="fw-bold text-secondary mb-2">API Eligibility JSON Response</h6>
-                        <div class="json-container" id="jsonOutput"></div>
-                    </div>
-                </div>
-                
-                <div class="text-center mt-5 mb-4">
-                    <a href="/" class="btn btn-outline-secondary px-4 fw-bold">Clear Patient</a>
-                </div>
                 {% endif %}
-            {% endif %}
-            
-            <div id="pdfDataDisplay" class="mb-4" style="{% if form_data and form_data.get('gemini_json_raw') %}display:block;{% else %}display:none;{% endif %}">
-                <hr>
-                <h6 class="fw-bold text-primary mb-2 small text-uppercase">Extracted Data Result (Gemini PDF):</h6>
-                <pre id="extractedJsonOutput" class="json-container" style="max-height: 200px;"></pre>
+            </div>
+        </div>
+
+        <div class="custom-card">
+            <h5 class="text-white mb-3">Document Processing</h5>
+            <p class="text-muted small mb-4">Upload patient documents (PDF/Images) for AI extraction or verify manually.</p>
+            <div class="action-bar">
+                <button class="btn btn-primary-custom" onclick="document.getElementById('batchInput').click()">
+                    <i class="bi bi-cloud-upload me-2"></i>Upload Documents
+                </button>
+                <button class="btn btn-secondary-custom" data-bs-toggle="modal" data-bs-target="#manualModal">
+                    <i class="bi bi-person-plus me-2"></i>Manual Entry
+                </button>
+                <button class="btn btn-secondary-custom" onclick="viewAllMappings()">
+                    <i class="bi bi-diagram-3 me-2"></i>Mappings
+                </button>
+                
+                <input type="file" id="batchInput" multiple accept=".pdf, .png, .jpg, .jpeg, .webp" style="display:none" onchange="handleBatch(this)">
+                
+                <div id="uploadSpinner" class="ms-3 text-info fw-bold align-items-center" style="display:none;">
+                    <span class="spinner-border spinner-border-sm me-2"></span> Processing Batch...
+                </div>
+            </div>
+        </div>
+
+        <div class="custom-card p-0" style="overflow: hidden;">
+            <div class="p-3 border-bottom border-secondary d-flex text-muted small fw-bold text-uppercase" style="background: rgba(255,255,255,0.02);">
+                <div class="col-patient ps-2">Patient Name</div>
+                <div class="col-dob">DOB</div>
+                <div class="col-payer">Insurance Payer</div>
+                <div class="col-status">Status</div>
+                <div class="col-fin">Copay</div>
+                <div class="col-fin">Coins</div>
+                <div class="col-fin">Ded Rem</div>
+                <div class="col-fin">OOP Rem</div>
+                <div class="col-actions pe-2">Actions</div>
             </div>
             
+            <div id="patientList">
+                {% for p in patients %}
+                <div class="patient-row">
+                    <div class="col-patient ps-2">
+                        <div class="avatar">{{ p.first_name[0] }}{{ p.last_name[0] }}</div>
+                        <span class="text-white fw-bold">{{ p.first_name }} {{ p.last_name }}</span>
+                    </div>
+                    <div class="col-dob">{{ p.dob }}</div>
+                    <div class="col-payer" title="{{ p.payer_name }}">
+                        {{ p.payer_name }}
+                    </div>
+                    
+                    <div class="col-status">
+                        {% if p.status == 'verified' %} <span class="status-badge text-green" title="Verified">d</span>
+                        {% elif p.status == 'error' %} <span class="status-badge text-red" title="Error">x</span>
+                        {% else %} <span class="status-badge text-yellow" title="Needs Mapping">-</span> {% endif %}
+                    </div>
+                    
+                    <div class="col-fin">{{ p.copay }}</div>
+                    <div class="col-fin">{{ p.coins }}</div>
+                    <div class="col-fin">{{ p.deductible_rem }}</div>
+                    <div class="col-fin">{{ p.oop_rem }}</div>
+                    
+                    <div class="col-actions pe-2">
+                        {% if p.status == 'mapping_needed' %}
+                            <button class="btn btn-sm btn-outline-warning d-flex align-items-center gap-1" onclick="openMappingModal('{{ p.payer_name }}')">
+                                <i class="bi bi-link-45deg"></i> Map
+                            </button>
+                        {% else %}
+                            <button class="btn btn-sm btn-primary-custom py-1 px-3" style="font-size: 0.8rem;">Active</button>
+                        {% endif %}
+                        <button class="btn btn-sm text-danger opacity-75 hover-opacity-100" onclick="confirmAction({{ p.id }})" title="Delete Record">
+                            <i class="bi bi-trash-fill fs-5"></i>
+                        </button>
+                    </div>
+                </div>
+                {% else %}
+                <div class="p-5 text-center text-muted">
+                    <i class="bi bi-inbox fs-1 d-block mb-3 opacity-50"></i>
+                    <p>No patient records found.</p>
+                    <small>Upload documents to populate this list.</small>
+                </div>
+                {% endfor %}
+            </div>
         </div>
     </div>
-</div>
 
-<div class="modal fade" id="changePinModal" tabindex="-1">
-    <div class="modal-dialog modal-sm">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title fs-6 fw-bold">Change PIN</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    <div class="modal fade" id="confirmModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content text-center p-4">
+                <div class="modal-confirm-icon">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                </div>
+                <h5 class="text-white mb-2 fw-bold">Are you sure?</h5>
+                <p class="text-muted small mb-4" id="confirmText">This action cannot be undone.</p>
+                <div class="d-flex justify-content-center gap-3">
+                    <button type="button" class="btn btn-secondary-custom btn-sm px-4" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger btn-sm px-4 fw-bold" id="confirmBtnAction">Yes, Delete</button>
+                </div>
             </div>
-            <div class="modal-body">
-                <form id="changePinForm">
-                    <div class="mb-3">
-                        <label class="form-label small text-muted">Current PIN</label>
-                        <input type="password" id="currentPin" name="current_code" class="form-control text-center" required>
+        </div>
+    </div>
+
+    <div class="modal fade" id="changePinModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fs-6 fw-bold">Change Access PIN</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="changePinForm">
+                        <div class="mb-3">
+                            <label class="form-label small text-muted">Current PIN</label>
+                            <input type="password" id="currentPin" name="current_code" class="form-control text-center" required>
+                        </div>
+                        <div class="mb-4">
+                            <label class="form-label small text-muted">New PIN</label>
+                            <input type="password" id="newPin" name="new_code" class="form-control text-center" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary-custom w-100 justify-content-center">Update PIN</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="manualModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold">Add Patient Manually</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form action="/manual-add" method="POST">
+                    <div class="modal-body">
+                        <div class="row g-4">
+                            <div class="col-md-6">
+                                <label class="form-label small text-muted">First Name *</label>
+                                <input type="text" name="firstName" class="form-control" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small text-muted">Last Name *</label>
+                                <input type="text" name="lastName" class="form-control" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small text-muted">Date of Birth *</label>
+                                <input type="text" name="dob" class="form-control" placeholder="MM/DD/YYYY">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small text-muted">Member ID *</label>
+                                <input type="text" name="memberId" class="form-control" required>
+                            </div>
+                            
+                            <div class="col-12">
+                                <label class="form-label small text-muted">Insurance Payer *</label>
+                                <div class="d-flex">
+                                    <button type="button" class="btn-mapping me-3" onclick="openMappingModal('')" title="Add Custom Mapping">
+                                        <i class="bi bi-gear-fill"></i>
+                                    </button>
+                                    <div class="flex-grow-1 position-relative">
+                                        <input list="payers" name="payerDisplayInput" class="form-control" placeholder="Start typing payer name..." id="payerInput" autocomplete="off" required>
+                                        <i class="bi bi-search position-absolute top-50 end-0 translate-middle-y me-3 text-muted"></i>
+                                        <input type="hidden" name="payerCode" id="payerCode">
+                                        <datalist id="payers">
+                                            {% for payer in payers %}
+                                                <option value="{{ payer.payerName }} - {{ payer.payerCode }}"></option>
+                                            {% endfor %}
+                                        </datalist>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label small text-muted">New PIN</label>
-                        <input type="password" id="newPin" name="new_code" class="form-control text-center" required>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary-custom" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary-custom">Verify & Save</button>
                     </div>
-                    <button type="submit" class="btn btn-primary w-100 fw-bold">Update PIN</button>
                 </form>
             </div>
         </div>
     </div>
-</div>
 
-<div class="modal fade" id="mappingModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Link AI to System Payer</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <label class="form-label small text-muted">PDF PAYER NAME</label>
-                <input type="text" id="aiPayerName" class="form-control mb-3 bg-light" readonly>
-                <label class="form-label small text-muted">ASSIGN TO SYSTEM</label>
-                <input class="form-control" list="payersDataList" id="mapToPayerInput" placeholder="Search system payers...">
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-primary w-100" onclick="saveNewMapping()">Save Mapping</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade" id="viewMappingsModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Saved Payer Mappings</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div class="table-responsive">
-                    <table class="table table-sm table-striped">
-                        <thead>
-                            <tr><th>PDF Name</th><th>System Payer</th><th>Action</th></tr>
-                        </thead>
-                        <tbody id="mappingsTableBody"></tbody>
-                    </table>
+    <div class="modal fade" id="mappingModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Link Payer Name</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small mb-3">Map a name found on a document to a specific system payer code.</p>
+                    <label class="form-label small text-muted">NAME ON DOCUMENT</label>
+                    <input type="text" id="aiPayerName" class="form-control mb-4" placeholder="e.g. UHC Medicare">
+                    
+                    <label class="form-label small text-muted">MAP TO SYSTEM PAYER</label>
+                    <input class="form-control" list="payers" id="mapToPayerInput" placeholder="Search system payer...">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary-custom w-100 justify-content-center" onclick="saveNewMapping()">Save Rule</button>
                 </div>
             </div>
         </div>
     </div>
-</div>
 
-{% endif %} 
+    <div class="modal fade" id="viewMappingsModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Saved Payer Mappings</h5>
+                    <div class="ms-auto">
+                        <button class="btn btn-sm btn-primary-custom me-3" onclick="openMappingModal('')">
+                            <i class="bi bi-plus-lg me-1"></i> Add New
+                        </button>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                </div>
+                <div class="modal-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-dark table-striped mb-0">
+                            <thead>
+                                <tr>
+                                    <th class="ps-4 text-white">Document Name</th>
+                                    <th class="text-white">Mapped System Payer</th>
+                                    <th class="text-end pe-4 text-white">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="mappingsTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+{% endif %}
+
+<div id="toastContainer" style="position: fixed; top: 20px; right: 20px; z-index: 2000;"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    let lastExtractedRawPayer = "";
-
     function showNotification(message, type='success') {
         const container = document.getElementById('toastContainer');
         const id = 'toast-' + Date.now();
         const icon = type === 'success' ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill';
         const colorClass = type === 'success' ? 'text-bg-success' : 'text-bg-danger';
-        
-        const html = `
-            <div id="${id}" class="toast align-items-center ${colorClass} border-0 show" role="alert" aria-live="assertive" aria-atomic="true">
-                <div class="d-flex">
-                    <div class="toast-body">
-                        <i class="bi ${icon} me-2"></i> ${message}
-                    </div>
-                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-                </div>
-            </div>
-        `;
+        const html = `<div id="${id}" class="toast align-items-center ${colorClass} border-0 show p-2"><div class="d-flex"><div class="toast-body fs-6"><i class="bi ${icon} me-2"></i> ${message}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div></div>`;
         container.insertAdjacentHTML('beforeend', html);
-        setTimeout(() => {
-            const el = document.getElementById(id);
-            if(el) { el.classList.remove('show'); setTimeout(() => el.remove(), 500); }
-        }, 3000);
+        setTimeout(() => { document.getElementById(id)?.remove(); }, 3000);
     }
 
-    function deepSearchForKeys(obj, possibleKeys) {
-        if (!obj || typeof obj !== 'object') return '';
-        for (let key in obj) {
-            if (possibleKeys.includes(key.toLowerCase())) {
-                if (typeof obj[key] === 'string' || typeof obj[key] === 'number') return String(obj[key]).trim();
+    async function handleBatch(input) {
+        if (!input.files || input.files.length === 0) return; 
+        
+        // MANUALLY SHOW SPINNER
+        const spinner = document.getElementById('uploadSpinner');
+        spinner.style.display = 'flex';
+        
+        const formData = new FormData();
+        for (let i = 0; i < input.files.length; i++) formData.append('files', input.files[i]);
+        
+        try {
+            const res = await fetch('/batch-upload', { method: 'POST', body: formData });
+            const data = await res.json();
+            if (data.success) window.location.reload(); 
+            else {
+                showNotification("Upload failed", "danger");
+                spinner.style.display = 'none';
             }
+        } catch (e) {
+            showNotification("System Error", "danger");
+            spinner.style.display = 'none';
         }
-        for (let key in obj) {
-            if (typeof obj[key] === 'object') {
-                let result = deepSearchForKeys(obj[key], possibleKeys);
-                if (result) return result;
-            }
-        }
-        return '';
     }
 
-    {% if session.get('role') %}
+    // CONFIRMATION LOGIC
+    let pendingAction = null;
+    let pendingId = null;
+
+    function confirmAction(idOrType, context) {
+        pendingId = idOrType;
+        pendingAction = context || 'PATIENT'; 
+        let msg = "This action cannot be undone.";
+        if(context === 'MAPPING') msg = "Delete this mapping rule?";
+        else if(idOrType === 'ALL') msg = "This will delete ALL patient records.";
+        else msg = "Delete this patient record?";
+        
+        document.getElementById('confirmText').innerText = msg;
+        new bootstrap.Modal(document.getElementById('confirmModal')).show();
+    }
+
+    document.getElementById('confirmBtnAction')?.addEventListener('click', async function() {
+        if (pendingAction === 'MAPPING') {
+            await deleteMapConfirm(pendingId);
+        } else {
+            if (pendingId === 'ALL') await deleteAllPatients();
+            else await deletePatient(pendingId);
+        }
+        bootstrap.Modal.getInstance(document.getElementById('confirmModal')).hide();
+    });
+
+    async function deletePatient(id) {
+        try {
+            await fetch(`/delete-patient/${id}`, { method: 'POST' });
+            window.location.reload();
+        } catch(e) { showNotification("Error deleting", "danger"); }
+    }
+
+    async function deleteAllPatients() {
+        try {
+            const res = await fetch('/delete-all-patients', { method: 'POST' });
+            const data = await res.json();
+            if(data.success) window.location.reload();
+            else showNotification(data.error, "danger");
+        } catch(e) { showNotification("System Error", "danger"); }
+    }
+
     document.getElementById('changePinForm')?.addEventListener('submit', async function(e) {
         e.preventDefault();
         const formData = new FormData(this);
         try {
-            const response = await fetch('/change-code', { method: 'POST', body: formData });
-            const data = await response.json();
-            if (data.success) {
-                showNotification(data.message, 'success');
-                const modal = bootstrap.Modal.getInstance(document.getElementById('changePinModal'));
-                modal.hide();
+            const res = await fetch('/change-code', {method:'POST', body:formData});
+            const d = await res.json();
+            if(d.success) {
+                showNotification("PIN Updated Successfully!");
+                bootstrap.Modal.getInstance(document.getElementById('changePinModal')).hide();
                 this.reset();
-            } else {
-                showNotification(data.error, 'danger');
-            }
-        } catch (err) {
-            showNotification('Error connecting to server', 'danger');
-        }
+            } else { showNotification(d.error, 'danger'); }
+        } catch(e) { showNotification('Server error', 'danger'); }
     });
 
-    const payerInput = document.getElementById('payerDisplayInput');
-    if (payerInput) {
-        payerInput.addEventListener('input', function() {
+    const pInput = document.getElementById('payerInput');
+    if(pInput) {
+        pInput.addEventListener('input', function() {
             const val = this.value;
-            const hiddenInput = document.getElementById('hiddenPayerCode');
-            if (val && val.includes(' - ')) {
-                hiddenInput.value = val.split(' - ').pop();
-            } else {
-                hiddenInput.value = val; 
-            }
+            const hidden = document.getElementById('payerCode');
+            if(val.includes(' - ')) hidden.value = val.split(' - ').pop();
+            else hidden.value = val;
         });
     }
 
-    async function handleReferralUpload(input) {
-        const file = input.files[0]; if (!file) return;
-        const status = document.getElementById('uploadStatus');
-        status.innerHTML = '<span class="text-primary"><div class="spinner-border spinner-border-sm" role="status"></div> AI Processing...</span>';
-        const formData = new FormData(); formData.append('file', file);
-
-        try {
-            const response = await fetch('/upload-referral', { method: 'POST', body: formData });
-            const data = await response.json();
-            
-            document.getElementById('gemini_json_raw').value = JSON.stringify(data);
-            document.getElementById('pdfDataDisplay').style.display = 'block';
-            document.getElementById('extractedJsonOutput').innerHTML = syntaxHighlight(data);
-
-            if (data.error) { 
-                status.innerHTML = `<span class="text-danger">❌ ${data.error}</span>`; 
-            } else {
-                const form = data.form_population_data || {};
-                const fnKeys = ['first_name', 'firstname', 'patient_first_name'];
-                const lnKeys = ['last_name', 'lastname', 'patient_last_name'];
-                const payerKeys = ['payer_name', 'payername', 'insurance_name', 'insurance_company'];
-
-                document.getElementById('firstName').value = form.first_name || deepSearchForKeys(data, fnKeys) || '';
-                document.getElementById('lastName').value = form.last_name || deepSearchForKeys(data, lnKeys) || '';
-                document.getElementById('dob').value = form.dob || '';
-                document.getElementById('memberId').value = form.member_id || '';
-
-                lastExtractedRawPayer = form.payer_name || deepSearchForKeys(data, payerKeys) || '';
-                const rawName = lastExtractedRawPayer.toLowerCase().trim();
-                const mappings = JSON.parse(localStorage.getItem('payer_mappings') || '{}');
-                const pBox = document.getElementById('payerDisplayInput');
-
-                if (rawName) {
-                    if (mappings[rawName]) { 
-                        pBox.value = mappings[rawName]; 
-                        showNotification("Applied Saved Mapping", "success");
-                    } else {
-                        const datalist = document.getElementById('payersDataList');
-                        const options = datalist.querySelectorAll('option');
-                        let best = null;
-                        for (let opt of options) {
-                            if (opt.value.toLowerCase().startsWith(rawName) || opt.value.toLowerCase().includes(rawName)) { 
-                                best = opt.value; break; 
-                            }
-                        }
-                        pBox.value = best || lastExtractedRawPayer;
-                    }
-                    pBox.dispatchEvent(new Event('input')); 
-                }
-                status.innerText = "✅ Done! Form filled.";
-            }
-        } catch (err) { status.innerText = "❌ Error connecting."; }
-    }
-
-    function saveNewMapping() {
-        const aiName = document.getElementById('aiPayerName').value.toLowerCase().trim();
-        const sysVal = document.getElementById('mapToPayerInput').value;
-        if (!sysVal || aiName.includes("no pdf") || aiName === "") {
-            showNotification("Please select system payer.", "danger");
-            return;
+    // MAPPING LOGIC with MODAL SWITCHING
+    function openMappingModal(payerName) {
+        const viewModalEl = document.getElementById('viewMappingsModal');
+        const viewModal = bootstrap.Modal.getInstance(viewModalEl);
+        if (viewModal && viewModalEl.classList.contains('show')) {
+            viewModal.hide(); // Close view list if open
         }
-        let mappings = JSON.parse(localStorage.getItem('payer_mappings') || '{}');
-        mappings[aiName] = sysVal;
-        localStorage.setItem('payer_mappings', JSON.stringify(mappings));
-        
-        const pBox = document.getElementById('payerDisplayInput');
-        pBox.value = sysVal; 
-        pBox.dispatchEvent(new Event('input'));
-        
-        const modalEl = document.getElementById('mappingModal');
-        const modalInstance = bootstrap.Modal.getInstance(modalEl);
-        if(modalInstance) modalInstance.hide();
-        
-        showNotification("Mapping Saved!", "success");
+        document.getElementById('aiPayerName').value = payerName || '';
+        new bootstrap.Modal(document.getElementById('mappingModal')).show();
     }
 
-    function viewAllMappings() {
-        renderMappingTable(); 
-        const modalEl = document.getElementById('viewMappingsModal');
-        const modalInstance = new bootstrap.Modal(modalEl);
-        modalInstance.show();
+    async function saveNewMapping() {
+        const aiName = document.getElementById('aiPayerName').value;
+        const sysVal = document.getElementById('mapToPayerInput').value;
+        if (!sysVal) return showNotification("Select a payer", "danger");
+        try {
+            const res = await fetch('/api/mappings', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ pdf_name: aiName, system_name: sysVal })
+            });
+            const d = await res.json();
+            if(d.success) {
+                showNotification("Mapping Saved! Please re-upload.", "success");
+                setTimeout(() => window.location.reload(), 1000);
+            } else { showNotification(d.error, "danger"); }
+        } catch(e) { showNotification("Error saving", "danger"); }
     }
 
-    function renderMappingTable() {
-        const mappings = JSON.parse(localStorage.getItem('payer_mappings') || '{}');
-        const tbody = document.getElementById('mappingsTableBody');
-        tbody.innerHTML = Object.keys(mappings).map(k => `
-            <tr>
-                <td><code>${k}</code></td>
-                <td>${mappings[k]}</td>
-                <td><button class="btn btn-sm btn-outline-danger" onclick="deleteMap('${k}')">Delete</button></td>
-            </tr>
-        `).join('') || '<tr><td colspan="3" class="text-center text-muted">No mappings saved.</td></tr>';
+    async function viewAllMappings() {
+        try {
+            const res = await fetch('/api/mappings');
+            const mappings = await res.json();
+            const tbody = document.getElementById('mappingsTableBody');
+            tbody.innerHTML = Object.keys(mappings).map(k => `
+                <tr>
+                    <td class="ps-4 text-white">${k}</td>
+                    <td class="text-info">${mappings[k]}</td>
+                    <td class="text-end pe-4">
+                        <button class="btn btn-sm btn-outline-danger border-0" onclick="confirmAction('${k}', 'MAPPING')"><i class="bi bi-trash"></i></button>
+                    </td>
+                </tr>
+            `).join('') || '<tr><td colspan="3" class="text-center text-muted p-4">No mappings found.</td></tr>';
+            new bootstrap.Modal(document.getElementById('viewMappingsModal')).show();
+        } catch(e) { showNotification("Error fetching", "danger"); }
     }
 
-    function deleteMap(k) {
-        let m = JSON.parse(localStorage.getItem('payer_mappings')); 
-        delete m[k];
-        localStorage.setItem('payer_mappings', JSON.stringify(m)); 
-        renderMappingTable(); 
-        showNotification("Mapping deleted.", "success");
+    async function deleteMapConfirm(pdfName) {
+        try {
+            await fetch('/api/mappings', {
+                method: 'DELETE',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ pdf_name: pdfName })
+            });
+            viewAllMappings(); 
+            showNotification("Mapping deleted", "success");
+        } catch(e) { showNotification("Error deleting", "danger"); }
     }
-
-    function openMappingModal() {
-        document.getElementById('aiPayerName').value = lastExtractedRawPayer || "No PDF yet";
-        const modalEl = document.getElementById('mappingModal');
-        const modalInstance = new bootstrap.Modal(modalEl);
-        modalInstance.show();
-    }
-    
-    function syntaxHighlight(j) {
-        if (typeof j !== 'string') j = JSON.stringify(j, null, 2);
-        return j.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-                .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, m => {
-                    let cls = 'json-number';
-                    if (/^"/.test(m)) {
-                        cls = /:$/.test(m) ? 'json-key' : 'json-string';
-                    } else if (/true|false/.test(m)) {
-                        cls = 'json-boolean';
-                    } else if (/null/.test(m)) {
-                        cls = 'json-null';
-                    }
-                    return `<span class="${cls}">${m}</span>`;
-                });
-    }
-
-    document.addEventListener("DOMContentLoaded", function() {
-        {% if data and data.full_json %}
-            const rawJsonFromApi = {{ data.full_json | tojson }};
-            const apiJsonBox = document.getElementById('jsonOutput');
-            if (apiJsonBox) apiJsonBox.innerHTML = syntaxHighlight(rawJsonFromApi);
-        {% endif %}
-
-        {% if form_data and form_data.get('gemini_json_raw') %}
-            try {
-                const rawGeminiStr = {{ form_data.get('gemini_json_raw') | tojson | safe }};
-                if (rawGeminiStr && rawGeminiStr.trim().startsWith('{')) {
-                    const parsedGemini = JSON.parse(rawGeminiStr);
-                    document.getElementById('extractedJsonOutput').innerHTML = syntaxHighlight(parsedGemini);
-                    document.getElementById('pdfDataDisplay').style.display = 'block';
-                    
-                    const payerKeys = ['payer_name', 'payername', 'insurance_name'];
-                    lastExtractedRawPayer = parsedGemini.form_population_data?.payer_name || deepSearchForKeys(parsedGemini, payerKeys) || "";
-                }
-            } catch(e) {
-                console.error("Failed to parse Gemini JSON", e);
-            }
-        {% endif %}
-    });
-    {% endif %}
 </script>
 </body>
 </html>

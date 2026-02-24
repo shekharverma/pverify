@@ -1,8 +1,9 @@
 import os
 import json
+import re
 from google import genai
 from google.genai import types
-from dotenv import load_dotenv  # <--- Add this
+from dotenv import load_dotenv
 
 load_dotenv()
 api_key = os.environ.get("GEMINI_API_KEY")
@@ -12,7 +13,25 @@ client = genai.Client(
     http_options={'api_version': 'v1beta'}
 )
 
-# In readpdf.py
+def clean_json_text(text):
+    """
+    Scans the text for the first JSON object {} or array [] and returns it.
+    Removes Markdown code blocks.
+    """
+    try:
+        # 1. Remove Markdown code blocks
+        if "```" in text:
+            text = re.sub(r"```json\s*", "", text, flags=re.IGNORECASE)
+            text = re.sub(r"```", "", text)
+        
+        # 2. Find the first '{' and the last '}' (or brackets)
+        match = re.search(r'(\{.*\}|\[.*\])', text, re.DOTALL)
+        if match:
+            text = match.group(0)
+            
+        return text.strip()
+    except Exception:
+        return text
 
 def extract_from_referral(pdf_path):
     try:
@@ -21,56 +40,47 @@ def extract_from_referral(pdf_path):
 
         medical_doc = client.files.upload(file=pdf_path)
 
-        # 1. STRICT PROMPT (Enforces keys and forbids nulls)
         prompt = """
-        You are a medical data extraction API. Your job is to extract data into a strict JSON format.
+        You are a medical data extraction API. Extract data into this strict JSON format.
         
-        RULES:
-        1. Extract specific form data into 'form_population_data'.
-        2. Extract full details into 'insurance_details'.
-        3. IF A VALUE IS MISSING, RETURN AN EMPTY STRING "". DO NOT RETURN null OR None.
-        4. Do not invent data. Use the text exactly as it appears.
-
         REQUIRED JSON STRUCTURE:
         {
           "form_population_data": {
-            "first_name": "Patient first name",
-            "last_name": "Patient last name",
+            "first_name": "Patient First Name",
+            "last_name": "Patient Last Name",
             "dob": "MM/DD/YYYY",
-            "member_id": "Insurance Member ID / Subscriber ID",
-            "payer_name": "Insurance Company Name (e.g. BCBS, Aetna)"
-          },
-          "insurance_details": {
-             ... extract all other clinical and provider data here ...
+            "member_id": "Member ID",
+            "payer_name": "Payer Name"
           }
         }
         """
 
-        # 2. CONFIGURATION (The Magic Fix)
-        # temperature=0.0 removes randomness.
-        # response_mime_type='application/json' enforces JSON.
         response = client.models.generate_content(
             model='gemini-2.0-flash',
             contents=[medical_doc, prompt],
             config=types.GenerateContentConfig(
                 response_mime_type='application/json',
-                temperature=0.0  # <--- THIS IS CRITICAL FOR CONSISTENCY
+                temperature=0.0 
             )
         )
 
         client.files.delete(name=medical_doc.name)
         
-        # Cleanup markdown formatting if present
-        raw_text = response.text.strip()
-        if raw_text.startswith("```"):
-             raw_text = raw_text.split("\n", 1)[1].rsplit("\n", 1)[0].strip()
-
-        return json.loads(raw_text)
+        # CLEAN AND PARSE
+        cleaned_text = clean_json_text(response.text)
+        
+        try:
+            return json.loads(cleaned_text)
+        except json.JSONDecodeError:
+            # Fallback: Try to fix single quotes which is a common AI error
+            try:
+                fixed_text = cleaned_text.replace("'", '"')
+                return json.loads(fixed_text)
+            except:
+                return {"error": "AI returned invalid JSON format."}
 
     except Exception as e:
-        return {"error": str(e)}
+        return {"error": f"Extraction Failed: {str(e)}"}
+
 if __name__ == "__main__":
-    file_path = "lefevre,brenda_referral 5.8.24.pdf"
-    data = extract_from_referral(file_path)
-    if data:
-        print(json.dumps(data, indent=4))
+    pass
