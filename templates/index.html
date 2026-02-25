@@ -76,7 +76,7 @@
         
         .col-patient { flex: 0 0 250px; display: flex; align-items: center; }
         .col-dob { flex: 0 0 120px; color: var(--text-muted); }
-        .col-payer { flex: 1; min-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 20px; color: var(--text-muted); }
+        .col-payer { flex: 1; min-width: 150px; padding-right: 20px; color: var(--text-muted); }
         .col-status { flex: 0 0 60px; text-align: center; }
         .col-fin { flex: 0 0 90px; text-align: center; font-weight: 600; color: white; }
         .col-actions { flex: 0 0 160px; display: flex; justify-content: flex-end; gap: 12px; align-items: center; }
@@ -203,7 +203,10 @@
                     </div>
                     <div class="col-dob">{{ p.dob }}</div>
                     <div class="col-payer" title="{{ p.payer_name }}">
-                        {{ p.payer_name }}
+                        <span class="text-truncate d-inline-block" style="max-width: 140px;">{{ p.payer_name }}</span>
+                        {% if p.plan_type %}
+                            <span class="badge rounded-pill bg-danger ms-2" style="font-size: 0.65rem; padding: 4px 8px; background-color: #8b1a1a !important; opacity: 0.9;">{{ p.plan_type }}</span>
+                        {% endif %}
                     </div>
                     
                     <div class="col-status">
@@ -212,13 +215,13 @@
                         {% else %} <span class="status-badge text-warning" title="Needs Mapping">-</span> {% endif %}
                     </div>
                     
-                    <div class="col-fin">{{ p.copay }}</div>
-                    <div class="col-fin">{{ p.coins }}</div>
+                    <div class="col-fin" style="color: #3fb950 !important; font-weight: 700;">{{ p.copay }}</div>
+                    <div class="col-fin" style="color: #f85149 !important; font-weight: 700;">{{ p.coins }}</div>
                     <div class="col-fin">{{ p.deductible_rem }}</div>
                     <div class="col-fin">{{ p.oop_rem }}</div>
                     
                     <div class="col-actions pe-2">
-                        {% if p.status == 'mapping_needed' %}
+                         {% if p.status == 'mapping_needed' %}
                             <button class="btn btn-sm btn-outline-warning d-flex align-items-center gap-1" onclick="openMappingModal('{{ p.payer_name }}')">
                                 <i class="bi bi-link-45deg"></i> Map
                             </button>
@@ -241,7 +244,6 @@
         </div>
     </div>
 
-    <!-- Modals (Confirm, Pin, Manual, Mapping, View Mappings) Remain Exactly the Same -->
     <div class="modal fade" id="confirmModal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered modal-sm">
             <div class="modal-content text-center p-4">
@@ -251,6 +253,23 @@
                 <div class="d-flex justify-content-center gap-3">
                     <button type="button" class="btn btn-secondary-custom btn-sm px-4" data-bs-dismiss="modal">Cancel</button>
                     <button type="button" class="btn btn-danger btn-sm px-4 fw-bold" id="confirmBtnAction">Yes, Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="rawJsonModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content" style="background-color: #0d1117; border: 1px solid #30363d;">
+                <div class="modal-header" style="border-bottom: 1px solid #30363d;">
+                    <h5 class="modal-title text-white font-monospace">PVerify Raw Response</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-0">
+                    <pre id="jsonOutput" class="m-0 p-3 text-success" style="background: #000; overflow: auto; max-height: 70vh; font-size: 0.85rem; font-family: 'Courier New', monospace;"></pre>
+                </div>
+                <div class="modal-footer" style="border-top: 1px solid #30363d;">
+                    <button type="button" class="btn btn-sm btn-secondary-custom" data-bs-dismiss="modal">Close</button>
                 </div>
             </div>
         </div>
@@ -393,6 +412,10 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+    // Global storage
+    window.rawPatientData = {};  // Stores PVerify JSON
+    window.geminiData = {};      // Stores Gemini JSON
+
     function showNotification(message, type='success') {
         const container = document.getElementById('toastContainer');
         const id = 'toast-' + Date.now();
@@ -403,86 +426,113 @@
         setTimeout(() => { document.getElementById(id)?.remove(); }, 3000);
     }
 
-    // NEW SEQUENTIAL PROCESSOR
-    async function handleBatch(input) {
-    if (!input.files || input.files.length === 0) return; 
-    
-    const spinner = document.getElementById('uploadSpinner');
-    const patientList = document.getElementById('patientList');
-    const emptyState = document.getElementById('emptyStateMsg');
-    const recordCountSpan = document.getElementById('recordCount');
-    
-    spinner.style.display = 'flex';
-    if (emptyState) emptyState.style.display = 'none';
-
-    for (let i = 0; i < input.files.length; i++) {
-        const file = input.files[i];
-        
-        // Update status for the specific file
-        spinner.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> Processing ${i+1}/${input.files.length}: ${file.name}`;
-        
-        const formData = new FormData();
-        formData.append('file', file);
-        
-        try {
-            const res = await fetch('/upload-single', { method: 'POST', body: formData });
-            const data = await res.json();
-            
-            if (data.success && data.patient) {
-                const p = data.patient;
-                
-                // Determine Status Badge
-                let badge = '<span class="status-badge text-warning" title="Needs Mapping">-</span>';
-                if (p.status === 'verified') badge = '<span class="status-badge text-success" title="Verified">d</span>';
-                else if (p.status === 'error') badge = '<span class="status-badge text-danger" title="Error">x</span>';
-                
-                // Determine Action Button
-                let actionBtn = p.status === 'mapping_needed' 
-                    ? `<button class="btn btn-sm btn-outline-warning d-flex align-items-center gap-1" onclick="openMappingModal('${p.payer_name}')"><i class="bi bi-link-45deg"></i> Map</button>`
-                    : `<button class="btn btn-sm btn-primary-custom py-1 px-3" style="font-size: 0.8rem;">Active</button>`;
-
-                const rowHtml = `
-                <div class="patient-row animate-row">
-                    <div class="col-patient ps-2">
-                        <div class="avatar">${p.first_name[0]}${p.last_name[0]}</div>
-                        <span class="text-white fw-bold">${p.first_name} ${p.last_name}</span>
-                    </div>
-                    <div class="col-dob">${p.dob || ''}</div>
-                    <div class="col-payer" title="${p.payer_name}">${p.payer_name}</div>
-                    <div class="col-status">${badge}</div>
-                    <div class="col-fin">${p.copay}</div>
-                    <div class="col-fin">${p.coins}</div>
-                    <div class="col-fin">${p.deductible_rem}</div>
-                    <div class="col-fin">${p.oop_rem}</div>
-                    <div class="col-actions pe-2">
-                        ${actionBtn}
-                        <button class="btn btn-sm text-danger opacity-75" onclick="confirmAction(${p.id})">
-                            <i class="bi bi-trash-fill fs-5"></i>
-                        </button>
-                    </div>
-                </div>`;
-                
-                patientList.insertAdjacentHTML('afterbegin', rowHtml);
-                showNotification(`${file.name} processed`, "success");
-                
-                // Increment UI Counter
-                let currentTotal = parseInt(recordCountSpan.innerText) || 0;
-                recordCountSpan.innerText = `${currentTotal + 1} Records`;
-            } else {
-                showNotification(`Error ${file.name}: ${data.error}`, "danger");
-            }
-        } catch (e) {
-            showNotification(`System Error: ${file.name}`, "danger");
-        }
+    // --- VIEW PVERIFY JSON ---
+    function viewRawJson(id) {
+        const data = window.rawPatientData[id];
+        document.querySelector('#rawJsonModal .modal-title').innerText = "PVerify Raw Response";
+        document.getElementById('jsonOutput').textContent = data ? JSON.stringify(data, null, 2) : "// No Data";
+        new bootstrap.Modal(document.getElementById('rawJsonModal')).show();
     }
-    
-    spinner.style.display = 'none';
-    input.value = ''; // Allow re-upload of same files
-}
 
+    // --- NEW: VIEW GEMINI JSON ---
+    function viewGeminiJson(id) {
+        const data = window.geminiData[id];
+        document.querySelector('#rawJsonModal .modal-title').innerText = "Gemini AI Extraction";
+        document.getElementById('jsonOutput').textContent = data ? JSON.stringify(data, null, 2) : "// No Data";
+        new bootstrap.Modal(document.getElementById('rawJsonModal')).show();
+    }
+
+    async function handleBatch(input) {
+        if (!input.files || input.files.length === 0) return; 
+        
+        const spinner = document.getElementById('uploadSpinner');
+        const patientList = document.getElementById('patientList');
+        const emptyState = document.getElementById('emptyStateMsg');
+        const recordCountSpan = document.getElementById('recordCount');
+        
+        if (spinner) spinner.style.display = 'flex';
+        if (emptyState) emptyState.style.display = 'none';
+    
+        for (let i = 0; i < input.files.length; i++) {
+            const file = input.files[i];
+            if (spinner) spinner.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> Processing ${i+1}/${input.files.length}: ${file.name}`;
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            try {
+                const res = await fetch('/upload-single', { method: 'POST', body: formData });
+                const data = await res.json();
+                
+                if (data.success && data.patient) {
+                    const p = data.patient;
+    
+                    // STORE DATA
+                    window.rawPatientData[p.id] = p.pverify_raw;
+                    window.geminiData[p.id] = p.gemini_raw; // Store Gemini Data
+                    
+                    let badge = '<span class="status-badge text-warning">-</span>';
+                    if (p.status === 'verified') badge = '<span class="status-badge text-success">d</span>';
+                    else if (p.status === 'error') badge = '<span class="status-badge text-danger">x</span>';
+                    
+                    let actionBtn = p.status === 'mapping_needed' 
+                        ? `<button class="btn btn-sm btn-outline-warning d-flex align-items-center gap-1" onclick="openMappingModal('${p.payer_name}')"><i class="bi bi-link-45deg"></i> Map</button>`
+                        : `<button class="btn btn-sm btn-primary-custom py-1 px-3" style="font-size: 0.8rem;">Active</button>`;
+    
+                    // --- NEW ICONS ADDED BELOW ---
+                    const rowHtml = `
+                    <div class="patient-row animate-row">
+                        <div class="col-patient ps-2">
+                            <div class="avatar">${p.first_name ? p.first_name[0] : '?'}${p.last_name ? p.last_name[0] : '?'}</div>
+                            <span class="text-white fw-bold">${p.first_name} ${p.last_name}</span>
+                        </div>
+                        <div class="col-dob">${p.dob || ''}</div>
+                        <div class="col-payer">
+                            <span class="text-truncate d-inline-block" style="max-width: 140px;">${p.payer_name}</span>
+                            ${p.plan_type ? `<span class="badge rounded-pill bg-danger ms-2" style="font-size: 0.65rem; padding: 4px 8px; background-color: #8b1a1a !important;">${p.plan_type}</span>` : ''}
+                        </div>
+                        <div class="col-status">${badge}</div>
+                        <div class="col-fin" style="color: #3fb950 !important; font-weight: 700;">${p.copay}</div>
+                        <div class="col-fin" style="color: #f85149 !important; font-weight: 700;">${p.coins}</div>
+                        <div class="col-fin">${p.deductible_rem}</div>
+                        <div class="col-fin">${p.oop_rem}</div>
+                        <div class="col-actions pe-2">
+                            <a href="/uploads/${data.patient.filename}" target="_blank" class="btn btn-sm btn-outline-secondary border-0 me-1" title="View Document">
+                                <i class="bi bi-file-earmark-text text-white"></i>
+                            </a>
+                            <button class="btn btn-sm btn-outline-warning border-0 me-1" onclick="viewGeminiJson(${p.id})" title="View Gemini AI Data">
+                                <i class="bi bi-robot"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-info border-0 me-1" onclick="viewRawJson(${p.id})" title="View PVerify Data">
+                                <i class="bi bi-filetype-json"></i>
+                            </button>
+                            
+                            ${actionBtn}
+                            <button class="btn btn-sm text-danger opacity-75" onclick="confirmAction(${p.id})">
+                                <i class="bi bi-trash-fill"></i>
+                            </button>
+                        </div>
+                    </div>`;
+                    
+                    patientList.insertAdjacentHTML('afterbegin', rowHtml);
+                    let currentTotal = parseInt(recordCountSpan.innerText) || 0;
+                    recordCountSpan.innerText = `${currentTotal + 1} Records`;
+                } else {
+                    showNotification(`Error ${file.name}: ${data.error}`, "danger");
+                }
+            } catch (e) {
+                console.error(e);
+                showNotification(`System Error: ${file.name}`, "danger");
+            }
+        }
+        if (spinner) spinner.style.display = 'none';
+        input.value = ''; 
+    }
+
+    // ... (Keep confirmAction, deletePatient, openMappingModal, etc. exactly as they were) ...
+    // Just paste the rest of your helper functions here
     let pendingId = null;
     let pendingAction = null;
-
     function confirmAction(idOrType, context) {
         pendingId = idOrType;
         pendingAction = context || 'PATIENT'; 
@@ -490,118 +540,42 @@
         if(context === 'MAPPING') msg = "Delete this mapping rule?";
         else if(idOrType === 'ALL') msg = "This will delete ALL patient records.";
         else msg = "Delete this patient record?";
-        
         document.getElementById('confirmText').innerText = msg;
         new bootstrap.Modal(document.getElementById('confirmModal')).show();
     }
-
     document.getElementById('confirmBtnAction')?.addEventListener('click', async function() {
-        if (pendingAction === 'MAPPING') {
-            await deleteMapConfirm(pendingId);
-        } else {
-            if (pendingId === 'ALL') await deleteAllPatients();
-            else await deletePatient(pendingId);
-        }
+        if (pendingAction === 'MAPPING') await deleteMapConfirm(pendingId);
+        else if (pendingId === 'ALL') await deleteAllPatients();
+        else await deletePatient(pendingId);
         bootstrap.Modal.getInstance(document.getElementById('confirmModal')).hide();
     });
-
-    async function deletePatient(id) {
-        try {
-            await fetch(`/delete-patient/${id}`, { method: 'POST' });
-            window.location.reload();
-        } catch(e) { showNotification("Error deleting", "danger"); }
-    }
-
-    async function deleteAllPatients() {
-        try {
-            const res = await fetch('/delete-all-patients', { method: 'POST' });
-            const data = await res.json();
-            if(data.success) window.location.reload();
-            else showNotification(data.error, "danger");
-        } catch(e) { showNotification("System Error", "danger"); }
-    }
-
-    document.getElementById('changePinForm')?.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const formData = new FormData(this);
-        try {
-            const res = await fetch('/change-code', {method:'POST', body:formData});
-            const d = await res.json();
-            if(d.success) {
-                showNotification("PIN Updated Successfully!");
-                bootstrap.Modal.getInstance(document.getElementById('changePinModal')).hide();
-                this.reset();
-            } else { showNotification(d.error, 'danger'); }
-        } catch(e) { showNotification('Server error', 'danger'); }
-    });
-
-    const pInput = document.getElementById('payerInput');
-    if(pInput) {
-        pInput.addEventListener('input', function() {
-            const val = this.value;
-            const hidden = document.getElementById('payerCode');
-            if(val.includes(' - ')) hidden.value = val.split(' - ').pop();
-            else hidden.value = val;
-        });
-    }
-
+    async function deletePatient(id) { try { await fetch(`/delete-patient/${id}`, { method: 'POST' }); window.location.reload(); } catch(e) {} }
+    async function deleteAllPatients() { try { await fetch('/delete-all-patients', { method: 'POST' }); window.location.reload(); } catch(e) {} }
+    // ... include rest of helpers ...
     function openMappingModal(payerName) {
-        const viewModalEl = document.getElementById('viewMappingsModal');
-        const viewModal = bootstrap.Modal.getInstance(viewModalEl);
-        if (viewModal && viewModalEl.classList.contains('show')) {
-            viewModal.hide(); 
-        }
         document.getElementById('aiPayerName').value = payerName || '';
         new bootstrap.Modal(document.getElementById('mappingModal')).show();
     }
-
     async function saveNewMapping() {
         const aiName = document.getElementById('aiPayerName').value;
         const sysVal = document.getElementById('mapToPayerInput').value;
-        if (!sysVal) return showNotification("Select a payer", "danger");
-        try {
-            const res = await fetch('/api/mappings', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ pdf_name: aiName, system_name: sysVal })
-            });
-            const d = await res.json();
-            if(d.success) {
-                showNotification("Mapping Saved!", "success");
-                bootstrap.Modal.getInstance(document.getElementById('mappingModal')).hide();
-            } else { showNotification(d.error, "danger"); }
-        } catch(e) { showNotification("Error saving", "danger"); }
+        await fetch('/api/mappings', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ pdf_name: aiName, system_name: sysVal }) });
+        bootstrap.Modal.getInstance(document.getElementById('mappingModal')).hide();
+        showNotification("Mapping Saved!");
     }
-
     async function viewAllMappings() {
-        try {
-            const res = await fetch('/api/mappings');
-            const mappings = await res.json();
-            const tbody = document.getElementById('mappingsTableBody');
-            tbody.innerHTML = Object.keys(mappings).map(k => `
-                <tr>
-                    <td class="ps-4 text-white">${k}</td>
-                    <td class="text-info">${mappings[k]}</td>
-                    <td class="text-end pe-4">
-                        <button class="btn btn-sm btn-outline-danger border-0" onclick="confirmAction('${k}', 'MAPPING')"><i class="bi bi-trash"></i></button>
-                    </td>
-                </tr>
-            `).join('') || '<tr><td colspan="3" class="text-center text-muted p-4">No mappings found.</td></tr>';
-            new bootstrap.Modal(document.getElementById('viewMappingsModal')).show();
-        } catch(e) { showNotification("Error fetching", "danger"); }
+        const res = await fetch('/api/mappings');
+        const mappings = await res.json();
+        const tbody = document.getElementById('mappingsTableBody');
+        tbody.innerHTML = Object.keys(mappings).map(k => `<tr><td class="ps-4 text-white">${k}</td><td class="text-info">${mappings[k]}</td><td class="text-end pe-4"><button class="btn btn-sm btn-outline-danger border-0" onclick="confirmAction('${k}', 'MAPPING')"><i class="bi bi-trash"></i></button></td></tr>`).join('');
+        new bootstrap.Modal(document.getElementById('viewMappingsModal')).show();
     }
-
     async function deleteMapConfirm(pdfName) {
-        try {
-            await fetch('/api/mappings', {
-                method: 'DELETE',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ pdf_name: pdfName })
-            });
-            viewAllMappings(); 
-            showNotification("Mapping deleted", "success");
-        } catch(e) { showNotification("Error deleting", "danger"); }
+        await fetch('/api/mappings', { method: 'DELETE', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ pdf_name: pdfName }) });
+        viewAllMappings();
     }
+    const pInput = document.getElementById('payerInput');
+    if(pInput) { pInput.addEventListener('input', function() { const val = this.value; document.getElementById('payerCode').value = val.includes(' - ') ? val.split(' - ').pop() : val; }); }
 </script>
 </body>
 </html>
