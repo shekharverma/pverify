@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>MA Review - MedBill Pro</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --bg-dark: #0d1117; --card-dark: #161b22; --border-dark: #30363d; --text-main: #e6edf3; --text-muted: #8b949e; --accent-blue: #1f6feb; --sidebar-width: 260px; }
+        body { background-color: var(--bg-dark); color: var(--text-main); font-family: 'Inter', sans-serif; overflow-x: hidden; }
+        
+        .sidebar { width: var(--sidebar-width); height: 100vh; position: fixed; background-color: var(--card-dark); border-right: 1px solid var(--border-dark); padding: 25px 20px; }
+        .brand { font-size: 1.3rem; font-weight: 700; color: white; margin-bottom: 40px; display: flex; align-items: center; gap: 10px; }
+        .nav-link { color: var(--text-muted) !important; padding: 12px 15px; border-radius: 8px; margin-bottom: 8px; text-decoration: none; font-weight: 500; display: block;}
+        .nav-link:hover, .nav-link.active { background-color: rgba(31, 111, 235, 0.15); color: var(--accent-blue) !important; }
+        .nav-link i { margin-right: 12px; font-size: 1.2rem; }
+        .main-content { margin-left: var(--sidebar-width); padding: 40px; max-width: 1000px; }
+
+        .page-title { font-size: 1.8rem; font-weight: 700; color: white; letter-spacing: -0.5px; margin-bottom: 5px; }
+
+        .review-row { background: var(--card-dark); border: 1px solid var(--border-dark); border-radius: 8px; margin-bottom: 12px; transition: 0.2s; }
+        .review-row-header { padding: 15px 20px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
+        .review-row-header:hover { background: rgba(255,255,255,0.02); }
+        .review-index { width: 32px; height: 32px; background: transparent; border: 1px solid var(--text-muted); color: var(--text-muted); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; margin-right: 15px; transition: 0.3s;}
+        
+        .review-expanded { border-top: 1px solid var(--border-dark); padding: 20px; display: none; background: rgba(13, 17, 23, 0.5); border-radius: 0 0 8px 8px;}
+        
+        .code-list-item { background: #0d1117; border: 1px solid var(--border-dark); border-radius: 6px; padding: 15px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: all 0.2s; }
+        .code-list-item:hover { border-color: #484f58; }
+        .code-list-item.verified { border-color: #2ea043; background: rgba(46, 160, 67, 0.05); }
+        .code-list-item.verified .code-icon { color: #2ea043; }
+
+        .warning-banner { background-color: #4d2d00; border: 1px solid #7a4a00; color: #ffca7a; border-radius: 8px; padding: 15px; font-size: 0.9rem; font-weight: 500; display: flex; align-items: center; margin-top: 20px;}
+        
+        .btn-complete { background-color: #238636; border: none; color: white; padding: 6px 16px; border-radius: 6px; font-weight: 600; font-size: 0.85rem; display: none;}
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="brand"><i class="bi bi-box-seam-fill text-primary"></i> MedBill Pro</div>
+        <a href="/" class="nav-link"><i class="bi bi-people"></i> Patients</a>
+        <a href="/queue" class="nav-link"><i class="bi bi-list-task"></i> Encounter Queue</a>
+        <a href="/ma-review" class="nav-link active"><i class="bi bi-clipboard-check"></i> MA Review</a>
+        
+        <hr class="border-secondary mx-3 opacity-25 mt-4">
+        <a href="/admin" class="nav-link text-info"><i class="bi bi-gear-wide-connected"></i> Admin Settings</a>
+    </div>
+
+    <div class="main-content">
+        <h1 class="page-title text-white">MA Review Queue</h1>
+        <div class="text-white small mb-4"><i class="bi bi-calendar3 me-2"></i>{{ current_date }}</div>
+
+        <div id="reviewList">
+            {% for p in patients %}
+            <div class="review-row" id="row-{{ p.id }}">
+                <div class="review-row-header" onclick="toggleExpand({{ p.id }})">
+                    <div class="d-flex align-items-center">
+                        <div class="review-index" id="index-{{ p.id }}"><i class="bi bi-circle"></i></div>
+                        <div>
+                            <div class="d-flex align-items-center">
+                                <span class="fw-bold text-white me-3">{{ p.first_name }} {{ p.last_name }}</span>
+                                
+                                {% if p.encounter_flag == 'review' %}
+                                    <span class="badge bg-success text-white" style="font-size: 0.65rem;"><i class="bi bi-emoji-smile me-1"></i>Review Requested</span>
+                                {% elif p.encounter_flag == 'caution' %}
+                                    <span class="badge bg-danger text-white" style="font-size: 0.65rem;"><i class="bi bi-emoji-frown me-1"></i>Caution Flagged</span>
+                                {% endif %}
+                            </div>
+                            <div class="text-white mt-1" style="font-size: 0.75rem;">
+                                <span id="verified-count-{{ p.id }}">0</span> / {{ p.parsed_items|length }} verified
+                            </div>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <button class="btn-complete me-3 text-white" id="complete-btn-{{ p.id }}">Complete</button>
+                        <i class="bi bi-chevron-down text-white" id="chevron-{{ p.id }}"></i>
+                    </div>
+                </div>
+
+                <div class="review-expanded" id="expand-{{ p.id }}">
+                    <div class="mb-2">
+                        {% for item in p.parsed_items %}
+                        <div class="code-list-item" id="code-item-{{ p.id }}-{{ loop.index }}" onclick="toggleVerify({{ p.id }}, {{ loop.index }}, {{ p.parsed_items|length }})">
+                            <div>
+                                <div class="fw-bold text-white mb-1">
+                                    {{ item.code }} 
+                                    {% if item.type == 'E&M' %}<span class="badge bg-white text-dark ms-1" style="font-size: 0.55rem; padding: 3px 5px;">E&M</span>{% endif %}
+                                </div>
+                                <div class="text-white" style="font-size: 0.8rem;">{{ item.desc or 'Code Description' }}</div>
+                            </div>
+                            <div class="d-flex align-items-center">
+                                <span class="text-white fw-bold me-4">${{ "%.2f"|format(item.final_price) }}</span>
+                                <i class="bi bi-lock code-icon fs-5 text-white" id="icon-{{ p.id }}-{{ loop.index }}"></i>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="warning-banner" id="warning-{{ p.id }}">
+                        <i class="bi bi-exclamation-circle fs-5 me-3"></i>
+                        Verify each code matches the documentation. You must complete each patient in order before moving to the next.
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="p-5 text-center text-white border border-secondary rounded" style="background: var(--card-dark);">
+                <i class="bi bi-clipboard-check fs-1 d-block mb-3 opacity-50"></i>
+                <p>No encounters pending review.</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function toggleExpand(id) {
+            const exp = document.getElementById('expand-' + id);
+            const chev = document.getElementById('chevron-' + id);
+            if(exp.style.display === 'block') {
+                exp.style.display = 'none';
+                chev.classList.replace('bi-chevron-up', 'bi-chevron-down');
+            } else {
+                exp.style.display = 'block';
+                chev.classList.replace('bi-chevron-down', 'bi-chevron-up');
+            }
+        }
+
+        const verifiedStates = {};
+
+        function toggleVerify(patientId, itemIndex, totalItems) {
+            if (!verifiedStates[patientId]) verifiedStates[patientId] = [];
+            
+            const el = document.getElementById(`code-item-${patientId}-${itemIndex}`);
+            const icon = document.getElementById(`icon-${patientId}-${itemIndex}`);
+            
+            const idx = verifiedStates[patientId].indexOf(itemIndex);
+            if (idx > -1) {
+                // Unverify
+                verifiedStates[patientId].splice(idx, 1);
+                el.classList.remove('verified');
+                icon.classList.replace('bi-check-circle-fill', 'bi-lock');
+            } else {
+                // Verify
+                verifiedStates[patientId].push(itemIndex);
+                el.classList.add('verified');
+                icon.classList.replace('bi-lock', 'bi-check-circle-fill');
+            }
+            
+            const count = verifiedStates[patientId].length;
+            document.getElementById(`verified-count-${patientId}`).innerText = count;
+            
+            // If all verified, show Complete button
+            if (count === totalItems) {
+                document.getElementById(`complete-btn-${patientId}`).style.display = 'block';
+                document.getElementById(`warning-${patientId}`).style.display = 'none';
+                const circle = document.getElementById(`index-${patientId}`);
+                circle.style.borderColor = '#2ea043';
+                circle.style.color = '#2ea043';
+                circle.innerHTML = '<i class="bi bi-check-circle-fill"></i>';
+                document.getElementById(`row-${patientId}`).style.borderColor = '#2ea043';
+            } else {
+                document.getElementById(`complete-btn-${patientId}`).style.display = 'none';
+                document.getElementById(`warning-${patientId}`).style.display = 'flex';
+                const circle = document.getElementById(`index-${patientId}`);
+                circle.style.borderColor = '#8b949e';
+                circle.style.color = '#8b949e';
+                circle.innerHTML = '<i class="bi bi-circle"></i>';
+                document.getElementById(`row-${patientId}`).style.borderColor = '#30363d';
+            }
+        }
+    </script>
+</body>
+</html>

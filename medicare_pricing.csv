@@ -1,0 +1,18 @@
+Code,Description,Amount
+99203,Office Visit - New Patient Level 3,115.50
+99204,Office Visit - New Patient Level 4,167.00
+99213,Office Visit - Established Patient Level 3,92.00
+99214,Office Visit - Established Patient Level 4,131.00
+17000,Destruction of pre-malignant lesion (1st),75.25
+17003,Destruction of pre-malignant lesion (2-14),22.10
+17004,Destruction of pre-malignant lesion (15 or more),145.00
+17110,Destruction of benign lesions (up to 14),110.50
+11102,Tangential biopsy of skin (single),105.00
+11103,Tangential biopsy of skin (each additional),45.00
+11300,Shaving of epidermal lesion (trunk/arm/leg),88.50
+11301,Shaving of epidermal lesion (0.6 to 1.0 cm),115.00
+11302,Shaving of epidermal lesion (1.1 to 2.0 cm),135.00
+11310,Shaving of epidermal lesion (face/ears/lips),105.00
+11311,Shaving of epidermal lesion (face 0.6 to 1.0 cm),130.00
+11900,Intralesional injection (up to 7),85.00
+11901,Intralesional injection (more than 7),110.00

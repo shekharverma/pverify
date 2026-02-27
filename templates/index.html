@@ -19,8 +19,11 @@
         .text-white { color: white !important; }
         .text-info { color: #58a6ff !important; }
 
-        .form-control, .form-select { background-color: #0d1117 !important; border-color: var(--border-dark); color: white !important; padding: 12px; }
+        /* STRICT WHITE TEXT FIX */
+        .form-control, .form-select { background-color: #0d1117 !important; border: 1px solid var(--border-dark) !important; color: #ffffff !important; padding: 12px; }
         .form-control::placeholder { color: #6e7681 !important; }
+        .form-control:focus, .form-select:focus { background-color: #0d1117 !important; border-color: #79c0ff !important; color: #ffffff !important; box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.3) !important;}
+        option { background-color: #0d1117; color: #ffffff; }
         input:-webkit-autofill { -webkit-box-shadow: 0 0 0 30px #0d1117 inset !important; -webkit-text-fill-color: white !important; }
 
         .sidebar { width: var(--sidebar-width); height: 100vh; position: fixed; top: 0; left: 0; background-color: var(--card-dark); border-right: 1px solid var(--border-dark); padding: 25px 20px; display: flex; flex-direction: column; z-index: 1000; }
@@ -45,7 +48,6 @@
         .btn-secondary-custom { background-color: transparent; border: 1px solid var(--border-dark); color: var(--text-main) !important; padding: 10px 24px; font-weight: 600; border-radius: 8px; transition: 0.2s; }
         .btn-secondary-custom:hover { background-color: var(--border-dark); color: white !important; }
 
-        /* --- UPDATED FLEX LAYOUT FIX --- */
         .patient-row { display: flex; align-items: center; padding: 18px 20px; border-bottom: 1px solid var(--border-dark); transition: background 0.2s; font-size: 0.95rem; }
         .patient-row:last-child { border-bottom: none; }
         .patient-row:hover { background-color: rgba(255,255,255,0.03); }
@@ -54,8 +56,6 @@
         .col-dob { flex: 0 0 120px; color: var(--text-muted); }
         .col-payer { flex: 1; min-width: 150px; padding-right: 20px; color: var(--text-muted); }
         .col-fin { flex: 0 0 90px; text-align: center; font-weight: 600; color: white; }
-        
-        /* Increased width from 160px to 220px to fit all document/JSON icons cleanly */
         .col-actions { flex: 0 0 250px; display: flex; justify-content: flex-end; gap: 8px; align-items: center; }
 
         .modal-content { background-color: #161b22; border: 1px solid var(--border-dark); color: white !important; box-shadow: 0 20px 50px rgba(0,0,0,0.5); border-radius: 12px; }
@@ -79,8 +79,8 @@
             <h3 class="text-white mb-3"><i class="bi bi-shield-lock-fill me-2"></i>MedBill Pro</h3>
             <p class="text-muted mb-4">Enter your secure access PIN</p>
             <form method="POST" action="/login">
-                <input type="password" name="access_code" class="form-control form-control-lg text-center mb-4" placeholder="••••" style="letter-spacing: 5px; font-size: 1.5rem;" required autofocus>
-                <button class="btn btn-primary-custom w-100 justify-content-center py-3">Login System</button>
+                <input type="password" name="access_code" class="form-control form-control-lg text-center mb-4 text-white" placeholder="••••" style="letter-spacing: 5px; font-size: 1.5rem;" required autofocus>
+                <button class="btn btn-primary-custom w-100 justify-content-center py-3 text-white">Login System</button>
                 {% if login_error %}<div class="text-danger mt-3 small"><i class="bi bi-exclamation-circle me-1"></i> {{ login_error }}</div>{% endif %}
             </form>
         </div>
@@ -94,11 +94,15 @@
         {% set role = session.get('role') %}
 
         {% if role == 'admin' or 'patients' in perms %}
-        <a href="#" class="nav-link active"><i class="bi bi-people"></i> Patients</a>
+        <a href="/" class="nav-link active"><i class="bi bi-people"></i> Patients</a>
         {% endif %}
 
         {% if role == 'admin' or 'queue' in perms %}
         <a href="/queue" class="nav-link"><i class="bi bi-list-task"></i> Encounter Queue</a>
+        {% endif %}
+
+        {% if role == 'admin' %}
+        <a href="/ma-review" class="nav-link"><i class="bi bi-clipboard-check"></i> MA Review</a>
         {% endif %}
         
         {% if role == 'admin' or 'calculator' in perms %}
@@ -106,7 +110,7 @@
         {% endif %}
         
         {% if role == 'admin' %}
-        <hr class="border-secondary mx-3 opacity-25">
+        <hr class="border-secondary mx-3 opacity-25 mt-4">
         <a href="/admin" class="nav-link text-info"><i class="bi bi-gear-wide-connected"></i> Admin Settings</a>
         {% endif %}
         
@@ -115,7 +119,7 @@
                 <div class="avatar">{{ session.name[0] }}</div>
                 <div>
                     <div class="fw-bold">{{ session.name }}</div>
-                    <div class="text-muted small" style="font-size: 0.75rem;">{{ session.role|upper }}</div>
+                    <div class="text-white small" style="font-size: 0.75rem;">{{ session.role|upper }}</div>
                 </div>
             </div>
             <a class="nav-link" style="cursor: pointer;" data-bs-toggle="modal" data-bs-target="#changePinModal">
@@ -133,7 +137,7 @@
                 {% if session.role != 'admin' and current_user and current_user.locations %}
                 <div class="d-flex align-items-center bg-dark rounded border border-secondary px-3 py-1 me-3">
                     <i class="bi bi-geo-alt-fill text-info me-2"></i>
-                    <span class="text-muted small fw-bold me-2">WORKING AT:</span>
+                    <span class="text-white small fw-bold me-2">WORKING AT:</span>
                     <select class="form-select form-select-sm bg-transparent border-0 text-white shadow-none fw-bold" style="width: 180px; cursor: pointer;" onchange="updateActiveLocation(this.value)">
                         <option value="" class="bg-dark text-muted">-- Select Location --</option>
                         {% for loc in current_user.locations %}
@@ -143,12 +147,12 @@
                 </div>
                 {% endif %}
 
-                <div class="text-muted small">
+                <div class="text-white small">
                     <i class="bi bi-database me-2"></i>
                     <span id="recordCount">{% if patients %} {{ patients|length }} {% else %} 0 {% endif %} Records</span>
                 </div>
                 {% if session.role == 'admin' %}
-                <button class="btn btn-danger btn-sm fw-bold d-flex align-items-center px-3 py-2" onclick="confirmAction('ALL')">
+                <button class="btn btn-danger btn-sm fw-bold d-flex align-items-center px-3 py-2 text-white" onclick="confirmAction('ALL')">
                     <i class="bi bi-trash-fill me-2"></i>Delete All
                 </button>
                 {% endif %}
@@ -157,15 +161,15 @@
 
         <div class="custom-card">
             <h5 class="text-white mb-3">Document Processing</h5>
-            <p class="text-muted small mb-4">Upload patient documents (PDF/Images) to be processed one by one.</p>
+            <p class="text-white small mb-4">Upload patient documents (PDF/Images) to be processed one by one.</p>
             <div class="action-bar">
-                <button class="btn btn-primary-custom" onclick="document.getElementById('batchInput').click()">
+                <button class="btn btn-primary-custom text-white" onclick="document.getElementById('batchInput').click()">
                     <i class="bi bi-cloud-upload me-2"></i>Upload Documents
                 </button>
-                <button class="btn btn-secondary-custom" data-bs-toggle="modal" data-bs-target="#manualModal">
+                <button class="btn btn-secondary-custom text-white" data-bs-toggle="modal" data-bs-target="#manualModal">
                     <i class="bi bi-person-plus me-2"></i>Manual Entry
                 </button>
-                <button class="btn btn-secondary-custom" onclick="viewAllMappings()">
+                <button class="btn btn-secondary-custom text-white" onclick="viewAllMappings()">
                     <i class="bi bi-diagram-3 me-2"></i>Mappings
                 </button>
                 
@@ -178,7 +182,7 @@
         </div>
 
         <div class="custom-card p-0" style="overflow: hidden;">
-            <div class="p-3 border-bottom border-secondary d-flex text-muted small fw-bold text-uppercase" style="background: rgba(255,255,255,0.02);">
+            <div class="p-3 border-bottom border-secondary d-flex text-white small fw-bold text-uppercase" style="background: rgba(255,255,255,0.02);">
                 <div class="col-patient ps-2">Patient Name</div>
                 <div class="col-dob">DOB</div>
                 <div class="col-payer">Insurance Payer</div>
@@ -196,25 +200,25 @@
                         <div class="avatar">{{ p.first_name[0] }}{{ p.last_name[0] }}</div>
                         <span class="text-white fw-bold">{{ p.first_name }} {{ p.last_name }}</span>
                     </div>
-                    <div class="col-dob">{{ p.dob }}</div>
-                    <div class="col-payer" title="{{ p.payer_name }}">
+                    <div class="col-dob text-white">{{ p.dob }}</div>
+                    <div class="col-payer text-white" title="{{ p.payer_name }}">
                         <span class="text-truncate d-inline-block" style="max-width: 140px;">{{ p.payer_name }}</span>
                         {% if p.plan_type %}
-                            <span class="badge rounded-pill bg-danger ms-2" style="font-size: 0.65rem; padding: 4px 8px; background-color: #8b1a1a !important; opacity: 0.9;">{{ p.plan_type }}</span>
+                            <span class="badge rounded-pill bg-danger text-white ms-2" style="font-size: 0.65rem; padding: 4px 8px; background-color: #8b1a1a !important; opacity: 0.9;">{{ p.plan_type }}</span>
                         {% endif %}
                     </div>
                     
-                    <div class="col-fin" style="color: #3fb950 !important; font-weight: 700;">{{ p.copay }}</div>
-                    <div class="col-fin" style="color: #f85149 !important; font-weight: 700;">{{ p.coins }}</div>
-                    <div class="col-fin">{{ p.deductible_rem }}</div>
-                    <div class="col-fin">{{ p.oop_rem }}</div>
+                    <div class="col-fin text-white" style="color: #3fb950 !important; font-weight: 700;">{{ p.copay }}</div>
+                    <div class="col-fin text-white" style="color: #f85149 !important; font-weight: 700;">{{ p.coins }}</div>
+                    <div class="col-fin text-white">{{ p.deductible_rem }}</div>
+                    <div class="col-fin text-white">{{ p.oop_rem }}</div>
                     
                     <div class="col-actions pe-2">
                         
                         {% if p.in_queue %}
-                            <button class="btn btn-sm btn-outline-secondary border-0" disabled title="In Queue"><i class="bi bi-person-check-fill fs-5"></i></button>
+                            <button class="btn btn-sm btn-outline-secondary border-0 text-white" disabled title="In Queue"><i class="bi bi-person-check-fill fs-5"></i></button>
                         {% else %}
-                            <button class="btn btn-sm btn-outline-success border-0" onclick="addToQueue({{ p.id }})" title="Add to Encounter Queue"><i class="bi bi-person-plus-fill fs-5"></i></button>
+                            <button class="btn btn-sm btn-outline-success border-0 text-success" onclick="addToQueue({{ p.id }})" title="Add to Encounter Queue"><i class="bi bi-person-plus-fill fs-5"></i></button>
                         {% endif %}
 
                         {% if p.file_path %}
@@ -224,23 +228,23 @@
                         {% endif %}
                         
                         {% if p.gemini_raw %}
-                        <button class="btn btn-sm btn-outline-warning border-0" onclick="viewGeminiJson({{ p.id }})" title="View Gemini AI Data">
+                        <button class="btn btn-sm btn-outline-warning border-0 text-warning" onclick="viewGeminiJson({{ p.id }})" title="View Gemini AI Data">
                             <i class="bi bi-robot"></i>
                         </button>
                         {% endif %}
                         
                         {% if p.pverify_raw %}
-                        <button class="btn btn-sm btn-outline-info border-0" onclick="viewRawJson({{ p.id }})" title="View PVerify Data">
+                        <button class="btn btn-sm btn-outline-info border-0 text-info" onclick="viewRawJson({{ p.id }})" title="View PVerify Data">
                             <i class="bi bi-filetype-json"></i>
                         </button>
                         {% endif %}
 
                         {% if p.status == 'mapping_needed' %}
-                            <button class="btn btn-sm btn-outline-warning d-flex align-items-center gap-1" onclick="openMappingModal('{{ p.payer_name }}')">
+                            <button class="btn btn-sm btn-outline-warning d-flex align-items-center gap-1 text-warning" onclick="openMappingModal('{{ p.payer_name }}')">
                                 <i class="bi bi-link-45deg"></i> Map
                             </button>
                         {% else %}
-                            <button class="btn btn-sm btn-primary-custom py-1 px-2" style="font-size: 0.8rem;">Active</button>
+                            <button class="btn btn-sm btn-primary-custom text-white py-1 px-2" style="font-size: 0.8rem;">Active</button>
                         {% endif %}
                         <button class="btn btn-sm text-danger opacity-75 hover-opacity-100" onclick="confirmAction({{ p.id }})" title="Delete Record">
                             <i class="bi bi-trash-fill fs-5"></i>
@@ -248,7 +252,7 @@
                     </div>
                 </div>
                 {% else %}
-                <div id="emptyStateMsg" class="p-5 text-center text-muted">
+                <div id="emptyStateMsg" class="p-5 text-center text-white">
                     <i class="bi bi-inbox fs-1 d-block mb-3 opacity-50"></i>
                     <p>No patient records found.</p>
                     <small>Upload documents to populate this list.</small>
@@ -261,12 +265,12 @@
     <div class="modal fade" id="confirmModal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered modal-sm">
             <div class="modal-content text-center p-4">
-                <div class="modal-confirm-icon"><i class="bi bi-exclamation-triangle-fill"></i></div>
+                <div class="modal-confirm-icon"><i class="bi bi-exclamation-triangle-fill text-warning"></i></div>
                 <h5 class="text-white mb-2 fw-bold">Are you sure?</h5>
-                <p class="text-muted small mb-4" id="confirmText">This action cannot be undone.</p>
+                <p class="text-white small mb-4" id="confirmText">This action cannot be undone.</p>
                 <div class="d-flex justify-content-center gap-3">
-                    <button type="button" class="btn btn-secondary-custom btn-sm px-4" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-danger btn-sm px-4 fw-bold" id="confirmBtnAction">Yes, Delete</button>
+                    <button type="button" class="btn btn-secondary-custom btn-sm px-4 text-white" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger btn-sm px-4 fw-bold text-white" id="confirmBtnAction">Yes, Delete</button>
                 </div>
             </div>
         </div>
@@ -283,7 +287,7 @@
                     <pre id="jsonOutput" class="m-0 p-3 text-success" style="background: #000; overflow: auto; max-height: 70vh; font-size: 0.85rem; font-family: 'Courier New', monospace;"></pre>
                 </div>
                 <div class="modal-footer" style="border-top: 1px solid #30363d;">
-                    <button type="button" class="btn btn-sm btn-secondary-custom" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-sm btn-secondary-custom text-white" data-bs-dismiss="modal">Close</button>
                 </div>
             </div>
         </div>
@@ -293,20 +297,20 @@
         <div class="modal-dialog modal-dialog-centered modal-sm">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title fs-6 fw-bold">Change Access PIN</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <h5 class="modal-title text-white fs-6 fw-bold">Change Access PIN</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
                     <form id="changePinForm">
                         <div class="mb-3">
-                            <label class="form-label small text-muted">Current PIN</label>
-                            <input type="password" id="currentPin" name="current_code" class="form-control text-center" required>
+                            <label class="form-label small text-white">Current PIN</label>
+                            <input type="password" id="currentPin" name="current_code" class="form-control text-center text-white" required>
                         </div>
                         <div class="mb-4">
-                            <label class="form-label small text-muted">New PIN</label>
-                            <input type="password" id="newPin" name="new_code" class="form-control text-center" required>
+                            <label class="form-label small text-white">New PIN</label>
+                            <input type="password" id="newPin" name="new_code" class="form-control text-center text-white" required>
                         </div>
-                        <button type="submit" class="btn btn-primary-custom w-100 justify-content-center">Update PIN</button>
+                        <button type="submit" class="btn btn-primary-custom w-100 justify-content-center text-white">Update PIN</button>
                     </form>
                 </div>
             </div>
@@ -317,37 +321,37 @@
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title fw-bold">Add Patient Manually</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <h5 class="modal-title fw-bold text-white">Add Patient Manually</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <form action="/manual-add" method="POST">
                     <div class="modal-body">
                         <div class="row g-4">
                             <div class="col-md-6">
-                                <label class="form-label small text-muted">First Name *</label>
-                                <input type="text" name="firstName" class="form-control" required>
+                                <label class="form-label small text-white">First Name *</label>
+                                <input type="text" name="firstName" class="form-control text-white" required>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label small text-muted">Last Name *</label>
-                                <input type="text" name="lastName" class="form-control" required>
+                                <label class="form-label small text-white">Last Name *</label>
+                                <input type="text" name="lastName" class="form-control text-white" required>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label small text-muted">Date of Birth *</label>
-                                <input type="text" name="dob" class="form-control" placeholder="MM/DD/YYYY">
+                                <label class="form-label small text-white">Date of Birth *</label>
+                                <input type="text" name="dob" class="form-control text-white" placeholder="MM/DD/YYYY">
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label small text-muted">Member ID *</label>
-                                <input type="text" name="memberId" class="form-control" required>
+                                <label class="form-label small text-white">Member ID *</label>
+                                <input type="text" name="memberId" class="form-control text-white" required>
                             </div>
                             
                             <div class="col-12">
-                                <label class="form-label small text-muted">Insurance Payer *</label>
+                                <label class="form-label small text-white">Insurance Payer *</label>
                                 <div class="d-flex">
-                                    <button type="button" class="btn-mapping me-3" onclick="openMappingModal('')" title="Add Custom Mapping">
+                                    <button type="button" class="btn-mapping me-3 text-white" onclick="openMappingModal('')" title="Add Custom Mapping">
                                         <i class="bi bi-gear-fill"></i>
                                     </button>
                                     <div class="flex-grow-1 position-relative">
-                                        <input list="payers" name="payerDisplayInput" class="form-control" placeholder="Start typing payer name..." id="payerInput" autocomplete="off" required>
+                                        <input list="payers" name="payerDisplayInput" class="form-control text-white" placeholder="Start typing payer name..." id="payerInput" autocomplete="off" required>
                                         <input type="hidden" name="payerCode" id="payerCode">
                                         <datalist id="payers">
                                             {% for payer in payers %}
@@ -360,8 +364,8 @@
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary-custom" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary-custom">Verify & Save</button>
+                        <button type="button" class="btn btn-secondary-custom text-white" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary-custom text-white">Verify & Save</button>
                     </div>
                 </form>
             </div>
@@ -372,19 +376,19 @@
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Link Payer Name</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <h5 class="modal-title text-white">Link Payer Name</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="text-muted small mb-3">Map a name found on a document to a specific system payer code.</p>
-                    <label class="form-label small text-muted">NAME ON DOCUMENT</label>
-                    <input type="text" id="aiPayerName" class="form-control mb-4" placeholder="e.g. UHC Medicare">
+                    <p class="text-white small mb-3">Map a name found on a document to a specific system payer code.</p>
+                    <label class="form-label small text-white">NAME ON DOCUMENT</label>
+                    <input type="text" id="aiPayerName" class="form-control text-white mb-4" placeholder="e.g. UHC Medicare">
                     
-                    <label class="form-label small text-muted">MAP TO SYSTEM PAYER</label>
-                    <input class="form-control" list="payers" id="mapToPayerInput" placeholder="Search system payer...">
+                    <label class="form-label small text-white">MAP TO SYSTEM PAYER</label>
+                    <input class="form-control text-white" list="payers" id="mapToPayerInput" placeholder="Search system payer...">
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-primary-custom w-100 justify-content-center" onclick="saveNewMapping()">Save Rule</button>
+                    <button type="button" class="btn btn-primary-custom w-100 justify-content-center text-white" onclick="saveNewMapping()">Save Rule</button>
                 </div>
             </div>
         </div>
@@ -394,12 +398,12 @@
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Saved Payer Mappings</h5>
+                    <h5 class="modal-title text-white">Saved Payer Mappings</h5>
                     <div class="ms-auto">
-                        <button class="btn btn-sm btn-primary-custom me-3" onclick="openMappingModal('')">
+                        <button class="btn btn-sm btn-primary-custom me-3 text-white" onclick="openMappingModal('')">
                             <i class="bi bi-plus-lg me-1"></i> Add New
                         </button>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                     </div>
                 </div>
                 <div class="modal-body p-0">
@@ -457,7 +461,7 @@
         const id = 'toast-' + Date.now();
         const icon = type === 'success' ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill';
         const colorClass = type === 'success' ? 'text-bg-success' : 'text-bg-danger';
-        const html = `<div id="${id}" class="toast align-items-center ${colorClass} border-0 show p-2"><div class="d-flex"><div class="toast-body fs-6"><i class="bi ${icon} me-2"></i> ${message}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div></div>`;
+        const html = `<div id="${id}" class="toast align-items-center ${colorClass} border-0 show p-2"><div class="d-flex"><div class="toast-body fs-6 text-white"><i class="bi ${icon} me-2"></i> ${message}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div></div>`;
         container.insertAdjacentHTML('beforeend', html);
         setTimeout(() => { document.getElementById(id)?.remove(); }, 3000);
     }
@@ -489,7 +493,7 @@
     
         for (let i = 0; i < input.files.length; i++) {
             const file = input.files[i];
-            if (spinner) spinner.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> Processing ${i+1}/${input.files.length}: ${file.name}`;
+            if (spinner) spinner.innerHTML = `<span class="spinner-border spinner-border-sm me-2 text-white"></span> <span class="text-white">Processing ${i+1}/${input.files.length}: ${file.name}</span>`;
             
             const formData = new FormData();
             formData.append('file', file);
@@ -504,12 +508,12 @@
                     window.geminiData[p.id] = p.gemini_raw;
                     
                     let actionBtn = p.status_flag === 'mapping_needed' 
-                        ? `<button class="btn btn-sm btn-outline-warning d-flex align-items-center gap-1" onclick="openMappingModal('${p.payer_name}')"><i class="bi bi-link-45deg"></i> Map</button>`
-                        : `<button class="btn btn-sm btn-primary-custom py-1 px-2" style="font-size: 0.8rem;">Active</button>`;
+                        ? `<button class="btn btn-sm btn-outline-warning d-flex align-items-center gap-1 text-warning" onclick="openMappingModal('${p.payer_name}')"><i class="bi bi-link-45deg"></i> Map</button>`
+                        : `<button class="btn btn-sm btn-primary-custom py-1 px-2 text-white" style="font-size: 0.8rem;">Active</button>`;
 
                     let queueBtn = p.in_queue 
-                        ? `<button class="btn btn-sm btn-outline-secondary border-0" disabled title="In Queue"><i class="bi bi-person-check-fill fs-5"></i></button>`
-                        : `<button class="btn btn-sm btn-outline-success border-0" onclick="addToQueue(${p.id})" title="Add to Encounter Queue"><i class="bi bi-person-plus-fill fs-5"></i></button>`;
+                        ? `<button class="btn btn-sm btn-outline-secondary border-0 text-white" disabled title="In Queue"><i class="bi bi-person-check-fill fs-5"></i></button>`
+                        : `<button class="btn btn-sm btn-outline-success border-0 text-success" onclick="addToQueue(${p.id})" title="Add to Encounter Queue"><i class="bi bi-person-plus-fill fs-5"></i></button>`;
     
                     const rowHtml = `
                     <div class="patient-row animate-row">
@@ -517,15 +521,15 @@
                             <div class="avatar">${p.first_name ? p.first_name[0] : '?'}${p.last_name ? p.last_name[0] : '?'}</div>
                             <span class="text-white fw-bold">${p.first_name} ${p.last_name}</span>
                         </div>
-                        <div class="col-dob">${p.dob || ''}</div>
-                        <div class="col-payer">
+                        <div class="col-dob text-white">${p.dob || ''}</div>
+                        <div class="col-payer text-white">
                             <span class="text-truncate d-inline-block" style="max-width: 140px;">${p.payer_name}</span>
-                            ${p.plan_type ? `<span class="badge rounded-pill bg-danger ms-2" style="font-size: 0.65rem; padding: 4px 8px; background-color: #8b1a1a !important;">${p.plan_type}</span>` : ''}
+                            ${p.plan_type ? `<span class="badge rounded-pill bg-danger text-white ms-2" style="font-size: 0.65rem; padding: 4px 8px; background-color: #8b1a1a !important;">${p.plan_type}</span>` : ''}
                         </div>
-                        <div class="col-fin" style="color: #3fb950 !important; font-weight: 700;">${p.copay}</div>
-                        <div class="col-fin" style="color: #f85149 !important; font-weight: 700;">${p.coins}</div>
-                        <div class="col-fin">${p.deductible_rem}</div>
-                        <div class="col-fin">${p.oop_rem}</div>
+                        <div class="col-fin text-white" style="color: #3fb950 !important; font-weight: 700;">${p.copay}</div>
+                        <div class="col-fin text-white" style="color: #f85149 !important; font-weight: 700;">${p.coins}</div>
+                        <div class="col-fin text-white">${p.deductible_rem}</div>
+                        <div class="col-fin text-white">${p.oop_rem}</div>
                         
                         <div class="col-actions pe-2">
                             ${queueBtn}
@@ -536,12 +540,12 @@
                             </a>` : ''}
                             
                             ${p.gemini_raw ? `
-                            <button class="btn btn-sm btn-outline-warning border-0" onclick="viewGeminiJson(${p.id})" title="View Gemini AI Data">
+                            <button class="btn btn-sm btn-outline-warning border-0 text-warning" onclick="viewGeminiJson(${p.id})" title="View Gemini AI Data">
                                 <i class="bi bi-robot"></i>
                             </button>` : ''}
                             
                             ${p.pverify_raw ? `
-                            <button class="btn btn-sm btn-outline-info border-0" onclick="viewRawJson(${p.id})" title="View PVerify Data">
+                            <button class="btn btn-sm btn-outline-info border-0 text-info" onclick="viewRawJson(${p.id})" title="View PVerify Data">
                                 <i class="bi bi-filetype-json"></i>
                             </button>` : ''}
 

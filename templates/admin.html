@@ -19,13 +19,13 @@
         
         .modal-content { background-color: #161b22; border: 1px solid #30363d; }
         .modal-header, .modal-footer { border-color: #30363d; }
-        
-        /* 1. FORCED BRIGHT TEXT FOR MODAL LABELS */
         .modal-body label { color: #ffffff !important; font-weight: 600; margin-bottom: 6px; font-size: 0.9rem;}
         
+        /* STRICT WHITE TEXT ENFORCEMENT ON ALL INPUTS/DROPDOWNS */
         .form-control, .form-select { background-color: #0d1117 !important; border: 1px solid #58a6ff !important; color: #ffffff !important; padding: 10px; }
         .form-control::placeholder { color: #8b949e !important; opacity: 1; }
         .form-control:focus, .form-select:focus { background-color: #0d1117 !important; border-color: #79c0ff !important; color: #ffffff !important; box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.3); }
+        option { background-color: #0d1117; color: #ffffff; }
 
         .checkbox-group { background-color: #0d1117; border: 1px solid #58a6ff; border-radius: 6px; padding: 15px; max-height: 150px; overflow-y: auto; }
         .form-check-input { background-color: #21262d; border-color: #8b949e; }
@@ -47,6 +47,8 @@
         <button class="nav-link active text-start" data-bs-toggle="pill" data-bs-target="#tab-staff"><i class="bi bi-people me-2"></i>Staff Members</button>
         <button class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#tab-providers"><i class="bi bi-heart-pulse me-2"></i>Providers</button>
         <button class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#tab-locations"><i class="bi bi-geo-alt me-2"></i>Locations</button>
+        <button class="nav-link text-start mt-3" data-bs-toggle="pill" data-bs-target="#tab-pricing"><i class="bi bi-tags me-2"></i>Codes & Pricing</button>
+        <a href="/ma-review" class="nav-link mt-3"><i class="bi bi-clipboard-check"></i> MA Review</a>
     </div>
 </div>
 
@@ -57,9 +59,9 @@
             <i class="bi bi-funnel-fill text-info ps-2"></i>
             <span class="text-white small fw-bold">VIEW FACILITY:</span>
             <select id="globalLocationFilter" class="form-select form-select-sm border-0 shadow-none bg-transparent fw-bold" style="width: 200px;" onchange="filterTables()">
-                <option value="ALL" class="bg-dark text-white">-- All Locations --</option>
+                <option value="ALL">-- All Locations --</option>
                 {% for loc in locations %}
-                    <option value="{{ loc.id }}" class="bg-dark text-white">{{ loc.name }}</option>
+                    <option value="{{ loc.id }}">{{ loc.name }}</option>
                 {% endfor %}
             </select>
         </div>
@@ -191,6 +193,70 @@
             </div>
         </div>
 
+        <div class="tab-pane fade" id="tab-pricing">
+            <div class="d-flex align-items-center mb-4 gap-3">
+                <button class="btn btn-info fw-bold shadow-sm text-white" data-bs-toggle="modal" data-bs-target="#importPricingModal">
+                    <i class="bi bi-cloud-arrow-up me-2"></i>Import Pricing (CSV)
+                </button>
+                <h2 class="text-white mb-0">Codes & Pricing DB</h2>
+            </div>
+            
+            <div class="card-dark">
+                <h5 class="text-white mb-3">Stored Pricing Matrix</h5>
+                
+                <div class="row mb-4">
+                    <div class="col-md-4">
+                        <select class="form-select form-select-sm" id="filterLoc" onchange="filterPricingTable()">
+                            <option value="">-- Filter by Location --</option>
+                            {% for loc in locations %}
+                                <option value="{{ loc.name }}">{{ loc.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <select class="form-select form-select-sm" id="filterPayer" onchange="filterPricingTable()">
+                            <option value="">-- Filter by Payer --</option>
+                            {% for payer in payers %}
+                                <option value="{{ payer.payerCode }}">{{ payer.payerName }} (Code: {{ payer.payerCode }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <input type="text" class="form-control form-control-sm" id="filterSearch" placeholder="Search Code or Description..." oninput="filterPricingTable()">
+                    </div>
+                </div>
+
+                <div style="max-height: 500px; overflow-y: auto;">
+                    <table class="table table-dark table-hover table-sm mb-0">
+                        <thead style="position: sticky; top: 0; background-color: #161b22; z-index: 10;">
+                            <tr class="text-secondary text-uppercase" style="font-size: 0.75rem;">
+                                <th>Location</th>
+                                <th>Insurance Payer (Code)</th>
+                                <th>Code</th>
+                                <th>Description</th>
+                                <th class="text-end pe-3">Price</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pricingTableBody">
+                            {% for p in pricing_data %}
+                            <tr>
+                                <td class="align-middle text-white">{{ p.location.name }}</td>
+                                <td class="align-middle fw-bold text-white">{{ p.payer_id }}</td>
+                                <td class="align-middle text-info font-monospace">{{ p.medical_code.code }}</td>
+                                <td class="align-middle text-white small">{{ p.medical_code.description }}</td>
+                                <td class="align-middle text-end text-success fw-bold pe-3">${{ "%.2f"|format(p.price) }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="5" class="text-center text-muted py-4">No pricing records found. Upload a CSV to populate data.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
     </div>
 </div>
 
@@ -278,10 +344,62 @@
     </div>
 </div>
 
+<div class="modal fade" id="importPricingModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title fw-bold text-white"><i class="bi bi-cloud-arrow-up text-info me-2"></i>Import Insurance Pricing</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="importPricingForm">
+                    <div class="mb-3">
+                        <label class="text-white small fw-bold">Facility Location <span class="text-danger">*</span></label>
+                        <select name="location_id" class="form-select form-select-sm" required>
+                            <option value="">Select Location...</option>
+                            {% for loc in locations %}
+                            <option value="{{ loc.id }}">{{ loc.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="text-white small fw-bold">Insurance Payer <span class="text-danger">*</span></label>
+                        <input list="adminPayers" name="payerDisplayInput" id="adminPayerInput" class="form-control form-control-sm" placeholder="Start typing payer name..." autocomplete="off" required>
+                        <input type="hidden" name="payer_id" id="adminPayerCode">
+                        <datalist id="adminPayers">
+                            {% for payer in payers %}
+                                <option value="{{ payer.payerName }} - {{ payer.payerCode }}"></option>
+                            {% endfor %}
+                        </datalist>
+                    </div>
+                    <div class="mb-4">
+                        <label class="text-white small fw-bold">Upload CSV <span class="text-danger">*</span></label>
+                        <div class="text-muted" style="font-size: 0.75rem; margin-bottom: 5px;">Format must be: Code, Description, Amount</div>
+                        <input type="file" name="file" class="form-control form-control-sm" accept=".csv" required>
+                    </div>
+                    <button type="submit" class="btn btn-info w-100 py-3 fw-bold text-white">Import CSV Pricing</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="toastContainer" style="position: fixed; top: 20px; right: 20px; z-index: 2000;"></div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
     const userModal = new bootstrap.Modal(document.getElementById('userModal'));
     
+    function showNotification(message, type='success') {
+        const container = document.getElementById('toastContainer');
+        const id = 'toast-' + Date.now();
+        const icon = type === 'success' ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill';
+        const colorClass = type === 'success' ? 'text-bg-success' : 'text-bg-danger';
+        const html = `<div id="${id}" class="toast align-items-center ${colorClass} border-0 show p-2"><div class="d-flex"><div class="toast-body fs-6"><i class="bi ${icon} me-2"></i> ${message}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div></div>`;
+        container.insertAdjacentHTML('beforeend', html);
+        setTimeout(() => { document.getElementById(id)?.remove(); }, 4000);
+    }
+
     function filterTables() {
         const selectedLocId = document.getElementById('globalLocationFilter').value;
         const allRows = document.querySelectorAll('.user-row');
@@ -296,6 +414,32 @@
                 } else {
                     row.style.display = 'none'; 
                 }
+            }
+        });
+    }
+
+    function filterPricingTable() {
+        const locFilter = document.getElementById('filterLoc').value.toLowerCase();
+        const payerFilter = document.getElementById('filterPayer').value.toLowerCase();
+        const searchFilter = document.getElementById('filterSearch').value.toLowerCase();
+        const rows = document.querySelectorAll('#pricingTableBody tr');
+
+        rows.forEach(row => {
+            if (row.children.length < 5) return; 
+            
+            const loc = row.children[0].innerText.toLowerCase();
+            const payer = row.children[1].innerText.toLowerCase();
+            const code = row.children[2].innerText.toLowerCase();
+            const desc = row.children[3].innerText.toLowerCase();
+
+            const locMatch = locFilter === '' || loc.includes(locFilter);
+            const payerMatch = payerFilter === '' || payer.includes(payerFilter);
+            const searchMatch = searchFilter === '' || code.includes(searchFilter) || desc.includes(searchFilter);
+
+            if (locMatch && payerMatch && searchMatch) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
             }
         });
     }
@@ -339,7 +483,7 @@
         const res = await fetch('/api/admin/user', { method:'POST', body: formData });
         const data = await res.json();
         if(data.success) window.location.reload();
-        else alert(data.error);
+        else showNotification(data.error, 'danger');
     });
 
     document.getElementById('locForm').addEventListener('submit', async function(e) {
@@ -348,7 +492,7 @@
         const res = await fetch('/api/admin/location', { method:'POST', body: formData });
         const data = await res.json();
         if(data.success) window.location.reload();
-        else alert(data.error);
+        else showNotification(data.error, 'danger');
     });
 
     async function deleteUser(id) {
@@ -357,6 +501,34 @@
             window.location.reload();
         }
     }
+    
+    const adminPInput = document.getElementById('adminPayerInput');
+    if(adminPInput) { 
+        adminPInput.addEventListener('input', function() { 
+            const val = this.value; 
+            document.getElementById('adminPayerCode').value = val.includes(' - ') ? val.split(' - ').pop() : val; 
+        }); 
+    }
+
+    document.getElementById('importPricingForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const submitBtn = this.querySelector('button[type="submit"]');
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Importing...';
+        submitBtn.disabled = true;
+
+        const formData = new FormData(this);
+        const res = await fetch('/api/pricing/import', { method:'POST', body: formData });
+        const data = await res.json();
+        
+        if(data.success) {
+            showNotification(data.message);
+            setTimeout(() => window.location.reload(), 1500);
+        } else {
+            showNotification(data.error, 'danger');
+            submitBtn.innerHTML = 'Import CSV Pricing';
+            submitBtn.disabled = false;
+        }
+    });
 </script>
 </body>
 </html>

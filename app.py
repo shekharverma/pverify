@@ -6,19 +6,18 @@ import os
 import urllib3
 import time
 import concurrent.futures
+import csv
+import io
+import re
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, send_from_directory
 from datetime import datetime
 from werkzeug.utils import secure_filename
 from readpdf import extract_from_referral
-from models import db, User, PayerMapping, Patient, Location
+from models import db, User, PayerMapping, Patient, Location, MedicalCode, Pricing
 from flask_migrate import Migrate
 from sqlalchemy import func
 
-# ==========================================
-# FEATURE TOGGLES
-# ==========================================
 ENABLE_MEDICARE_SECONDARY_CHECK = False
-# ==========================================
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', handlers=[logging.StreamHandler(sys.stdout)])
 logger = logging.getLogger("MedBillApp")
@@ -47,7 +46,7 @@ def load_payers():
     except: return []
 
 def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'pdf', 'png', 'jpg', 'jpeg', 'webp'}
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'pdf', 'png', 'jpg', 'jpeg', 'webp', 'csv'}
 
 def get_pverify_token():
     global _access_token, _token_expiry
@@ -104,7 +103,6 @@ def process_single_file(filepath, app_context_app, filename=None):
             p_data, s_data = root.get("primary", {}), root.get("secondary", {})
             patient = Patient(first_name=root.get("first_name"), last_name=root.get("last_name"), dob=root.get("dob"), member_id=p_data.get("member_id"), payer_name=p_data.get("payer_name"), sec_member_id=s_data.get("member_id"), sec_payer_name=s_data.get("payer_name"))
             
-            # --- SAVE DATA TO DB FOR PERSISTENCE ---
             if filename: patient.file_path = filename
             patient.gemini_raw = json.dumps(extraction) 
             
@@ -169,7 +167,8 @@ def index():
     if not session.get('role'): return render_template("index.html")
     patients = Patient.query.order_by(Patient.created_at.desc()).all()
     current_user = User.query.get(session.get('user_id'))
-    return render_template("index.html", payers=load_payers(), patients=patients, current_user=current_user)
+    available_locs = Location.query.all() if session.get('role') == 'admin' else current_user.locations
+    return render_template("index.html", payers=load_payers(), patients=patients, current_user=current_user, available_locations=available_locs)
 
 @app.route('/login', methods=['POST'])
 def login():
@@ -194,7 +193,9 @@ def set_active_location():
 @app.route('/admin')
 def admin_dashboard():
     if session.get('role') != 'admin': return redirect(url_for('index'))
-    return render_template('admin.html', users=User.query.all(), locations=Location.query.all())
+    codes = MedicalCode.query.all()
+    pricing_data = Pricing.query.all()
+    return render_template('admin.html', users=User.query.all(), locations=Location.query.all(), codes=codes, pricing_data=pricing_data, payers=load_payers())
 
 @app.route('/api/admin/location', methods=['POST'])
 def add_location():
@@ -285,27 +286,46 @@ def logout(): session.clear(); return redirect(url_for('index'))
 
 
 # ==========================================
-# NEW: ENCOUNTER QUEUE ROUTES
+# ENCOUNTER QUEUE & MA REVIEW ROUTES
 # ==========================================
 
 @app.route('/queue')
 def encounter_queue():
     if not session.get('role'): return redirect(url_for('index'))
-    
     all_patients = Patient.query.order_by(Patient.first_name.asc()).all()
-    queue_patients = [p for p in all_patients if p.in_queue]
+    # ONLY SHOW IF IT HAS NOT BEEN SUBMITTED YET
+    queue_patients = [p for p in all_patients if p.in_queue and p.encounter_status != 'submitted']
     providers = User.query.filter_by(role='provider').all()
-    
     current_date = datetime.now().strftime("%A, %B %d, %Y")
     
-    return render_template("queue.html", all_patients=all_patients, queue_patients=queue_patients, providers=providers, current_date=current_date)
+    current_user = User.query.get(session['user_id'])
+    available_locs = Location.query.all() if session.get('role') == 'admin' else current_user.locations
+    
+    loc_id = current_user.current_location_id
+    for p in queue_patients:
+        p.valid_codes = []
+        if loc_id:
+            search_payers = [p.payer_name]
+            mapped = get_payer_code_by_name(p.payer_name)
+            if mapped: search_payers.append(mapped)
+            
+            valid_pricing = Pricing.query.filter(
+                Pricing.payer_id.in_(search_payers),
+                Pricing.location_id == loc_id
+            ).all()
+            
+            code_list = [pr.medical_code.code for pr in valid_pricing if pr.medical_code]
+            code_list.sort(key=lambda x: (not x.startswith('99'), x))
+            p.valid_codes = code_list
+    
+    return render_template("queue.html", all_patients=all_patients, queue_patients=queue_patients, providers=providers, current_date=current_date, current_user=current_user, available_locations=available_locs)
 
 @app.route('/api/queue/add', methods=['POST'])
 def api_queue_add():
     if not session.get('role'): return jsonify({"error": "Unauthorized"}), 403
     patient_ids = request.json.get('patient_ids', [])
     if patient_ids:
-        Patient.query.filter(Patient.id.in_(patient_ids)).update({Patient.in_queue: True}, synchronize_session=False)
+        Patient.query.filter(Patient.id.in_(patient_ids)).update({Patient.in_queue: True, Patient.encounter_status: 'pending'}, synchronize_session=False)
         db.session.commit()
     return jsonify({"success": True})
 
@@ -317,5 +337,162 @@ def api_queue_remove(id):
         p.in_queue = False
         db.session.commit()
     return jsonify({"success": True})
+
+@app.route('/api/queue/submit', methods=['POST'])
+def submit_encounter():
+    if not session.get('role'): return jsonify({"error": "Unauthorized"}), 403
+    data = request.json
+    p = Patient.query.get(data.get('patient_id'))
+    if p:
+        p.encounter_status = 'submitted'
+        p.encounter_total = data.get('total_cost', 0.0)
+        p.patient_resp = data.get('patient_resp', 0.0)
+        p.encounter_items = json.dumps(data.get('items', []))
+        p.encounter_flag = data.get('flag', None)
+        db.session.commit()
+        return jsonify({"success": True})
+    return jsonify({"success": False, "error": "Patient not found"})
+
+@app.route('/ma-review')
+def ma_review():
+    if session.get('role') != 'admin': return redirect(url_for('index'))
+    
+    # Fetch patients who have had their queue submitted
+    patients = Patient.query.filter_by(encounter_status='submitted').order_by(Patient.id.desc()).all()
+    
+    # Parse the saved JSON text back into a list of dictionaries for Jinja to render easily
+    for p in patients:
+        p.parsed_items = json.loads(p.encounter_items) if p.encounter_items else []
+        
+    current_date = datetime.now().strftime("%A, %B %d, %Y")
+    return render_template("ma_review.html", patients=patients, current_date=current_date)
+
+
+# ==========================================
+# CODES AND PRICING ROUTES
+# ==========================================
+
+@app.route('/api/pricing/import', methods=['POST'])
+def import_csv_pricing():
+    if session.get('role') != 'admin': return jsonify({"error": "Unauthorized"}), 403
+    payer_id = request.form.get('payer_id')
+    location_id = request.form.get('location_id')
+    file = request.files.get('file')
+    
+    if not payer_id or not location_id: return jsonify({"success": False, "error": "Payer and Location are required."})
+    if not file or not file.filename.endswith('.csv'): return jsonify({"success": False, "error": "Please upload a valid .csv file."})
+
+    try:
+        stream = io.StringIO(file.stream.read().decode("UTF8", errors='ignore'), newline=None)
+        csv_input = csv.reader(stream)
+        records_processed = 0
+        
+        for row in csv_input:
+            if len(row) >= 3:
+                code_val = row[0].strip()
+                desc_val = row[1].strip()
+                price_str = row[2].strip().replace('$', '').replace(',', '')
+                if not code_val or not price_str: continue
+                
+                try: price_val = float(price_str)
+                except ValueError: continue 
+                
+                mc = MedicalCode.query.filter_by(code=code_val).first()
+                if not mc:
+                    mc = MedicalCode(code=code_val, description=desc_val)
+                    db.session.add(mc)
+                    db.session.flush() 
+                
+                pricing = Pricing.query.filter_by(payer_id=payer_id, code_id=mc.id, location_id=location_id).first()
+                if pricing: pricing.price = price_val
+                else:
+                    pricing = Pricing(payer_id=payer_id, code_id=mc.id, location_id=location_id, price=price_val)
+                    db.session.add(pricing)
+                records_processed += 1
+                
+        db.session.commit()
+        return jsonify({"success": True, "message": f"Successfully imported {records_processed} pricing records."})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+@app.route('/api/calculate-visit', methods=['POST'])
+def calculate_visit():
+    if not session.get('user_id'): return jsonify({"error": "Unauthorized"}), 403
+    
+    data = request.json
+    patient_id = data.get('patient_id')
+    selected_codes = data.get('codes', [])
+    
+    user = User.query.get(session['user_id'])
+    loc_id = user.current_location_id
+    
+    if not loc_id:
+        return jsonify({"error": "Provider Location Error: You must select a 'WORKING AT' facility location at the top of the screen before calculating pricing."}), 400
+        
+    patient = Patient.query.get(patient_id)
+    if not patient: return jsonify({"error": "Patient not found"}), 404
+    
+    search_payers = [patient.payer_name] 
+    mapped_code = get_payer_code_by_name(patient.payer_name)
+    if mapped_code:
+        search_payers.append(mapped_code)
+    
+    em_codes = []
+    procedures = []
+    
+    for code in selected_codes:
+        mc = MedicalCode.query.filter_by(code=code).first()
+        price = 0.0
+        desc = ""
+        if mc:
+            desc = mc.description
+            pr = Pricing.query.filter(Pricing.payer_id.in_(search_payers), Pricing.code_id == mc.id, Pricing.location_id == loc_id).first()
+            if pr: price = pr.price
+            
+        is_em = code.startswith('99')
+        item = {
+            "code": code, 
+            "desc": desc,
+            "base_price": price, 
+            "final_price": price, 
+            "type": "E&M" if is_em else "PROC", 
+            "discounted": False
+        }
+        
+        if is_em: em_codes.append(item)
+        else: procedures.append(item)
+            
+    procedures.sort(key=lambda x: x["base_price"], reverse=True)
+    for i, proc in enumerate(procedures):
+        if i > 0 and proc["base_price"] > 0:
+            proc["final_price"] = proc["base_price"] * 0.5
+            proc["discounted"] = True
+            
+    final_list = em_codes + procedures
+    total_visit_cost = sum(item["final_price"] for item in final_list)
+    
+    try:
+        ded_str = re.sub(r'[^\d.]', '', str(patient.deductible_rem))
+        ded_rem = float(ded_str) if ded_str else 0.0
+    except:
+        ded_rem = 0.0
+        
+    try:
+        copay_str = re.sub(r'[^\d.]', '', str(patient.copay))
+        copay = float(copay_str) if copay_str else 0.0
+    except:
+        copay = 0.0
+
+    if ded_rem > 0:
+        patient_resp = min(total_visit_cost, ded_rem)
+    else:
+        patient_resp = min(total_visit_cost, copay)
+
+    return jsonify({
+        "success": True, 
+        "items": final_list, 
+        "total_cost": total_visit_cost,
+        "patient_resp": patient_resp
+    })
 
 if __name__ == "__main__": app.run(host="0.0.0.0", port=8081)
