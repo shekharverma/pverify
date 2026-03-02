@@ -68,12 +68,13 @@ class Patient(db.Model):
     sec_oop_rem = db.Column(db.String(50), default="")
     
     in_queue = db.Column(db.Boolean, default=False)
-    encounter_flag = db.Column(db.String(20), nullable=True)
-    # --- NEW: ENCOUNTER SUBMISSION TRACKING ---
+    
+    # --- ENCOUNTER SUBMISSION TRACKING ---
     encounter_status = db.Column(db.String(50), default="pending") # pending, submitted, reviewed
     encounter_total = db.Column(db.Float, default=0.0)
     patient_resp = db.Column(db.Float, default=0.0)
-    encounter_items = db.Column(db.Text, nullable=True) # JSON store for the submitted codes
+    encounter_items = db.Column(db.Text, nullable=True) 
+    encounter_flag = db.Column(db.String(20), nullable=True) # review, caution
 
 # ==========================================
 # MEDICAL CODES & PRICING MODELS
@@ -84,6 +85,7 @@ class MedicalCode(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     code = db.Column(db.String(50), unique=True, nullable=False)
     description = db.Column(db.String(255))
+    is_add_on = db.Column(db.Boolean, default=False) # Flags if code avoids 50% discount
 
 class Pricing(db.Model):
     __tablename__ = 'pricing'

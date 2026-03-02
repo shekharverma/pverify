@@ -21,7 +21,6 @@
         .modal-header, .modal-footer { border-color: #30363d; }
         .modal-body label { color: #ffffff !important; font-weight: 600; margin-bottom: 6px; font-size: 0.9rem;}
         
-        /* STRICT WHITE TEXT ENFORCEMENT ON ALL INPUTS/DROPDOWNS */
         .form-control, .form-select { background-color: #0d1117 !important; border: 1px solid #58a6ff !important; color: #ffffff !important; padding: 10px; }
         .form-control::placeholder { color: #8b949e !important; opacity: 1; }
         .form-control:focus, .form-select:focus { background-color: #0d1117 !important; border-color: #79c0ff !important; color: #ffffff !important; box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.3); }
@@ -198,7 +197,10 @@
                 <button class="btn btn-info fw-bold shadow-sm text-white" data-bs-toggle="modal" data-bs-target="#importPricingModal">
                     <i class="bi bi-cloud-arrow-up me-2"></i>Import Pricing (CSV)
                 </button>
-                <h2 class="text-white mb-0">Codes & Pricing DB</h2>
+                <button class="btn btn-outline-success fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#addCodeModal">
+                    <i class="bi bi-plus-circle me-2"></i>Add Manual Code
+                </button>
+                <h2 class="text-white mb-0 ms-auto">Codes & Pricing DB</h2>
             </div>
             
             <div class="card-dark">
@@ -231,7 +233,7 @@
                         <thead style="position: sticky; top: 0; background-color: #161b22; z-index: 10;">
                             <tr class="text-secondary text-uppercase" style="font-size: 0.75rem;">
                                 <th>Location</th>
-                                <th>Insurance Payer (Code)</th>
+                                <th>Insurance Payer</th>
                                 <th>Code</th>
                                 <th>Description</th>
                                 <th class="text-end pe-3">Price</th>
@@ -242,7 +244,10 @@
                             <tr>
                                 <td class="align-middle text-white">{{ p.location.name }}</td>
                                 <td class="align-middle fw-bold text-white">{{ p.payer_id }}</td>
-                                <td class="align-middle text-info font-monospace">{{ p.medical_code.code }}</td>
+                                <td class="align-middle text-info font-monospace">
+                                    {{ p.medical_code.code }}
+                                    {% if p.medical_code.is_add_on %}<span class="badge bg-secondary ms-1" style="font-size:0.6rem;">ADD-ON</span>{% endif %}
+                                </td>
                                 <td class="align-middle text-white small">{{ p.medical_code.description }}</td>
                                 <td class="align-middle text-end text-success fw-bold pe-3">${{ "%.2f"|format(p.price) }}</td>
                             </tr>
@@ -344,6 +349,34 @@
     </div>
 </div>
 
+<div class="modal fade" id="addCodeModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title fw-bold text-white"><i class="bi bi-plus-circle text-success me-2"></i>Add Single Code</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addCodeForm">
+                    <div class="mb-3">
+                        <label class="text-white small fw-bold">CPT / Procedure Code</label>
+                        <input type="text" name="code" class="form-control form-control-sm text-white" placeholder="e.g. 99203" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="text-white small fw-bold">Description</label>
+                        <input type="text" name="description" class="form-control form-control-sm text-white" placeholder="e.g. Office Visit, New Patient">
+                    </div>
+                    <div class="mb-4 form-check">
+                        <input type="checkbox" name="is_add_on" class="form-check-input" id="isAddOnCheck">
+                        <label class="form-check-label text-white small" for="isAddOnCheck">Is Add-On Code (Exempt from MCCR 50% discount)</label>
+                    </div>
+                    <button type="submit" class="btn btn-success w-100 py-3 fw-bold text-white">Save Code Definition</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="modal fade" id="importPricingModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -395,7 +428,7 @@
         const id = 'toast-' + Date.now();
         const icon = type === 'success' ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill';
         const colorClass = type === 'success' ? 'text-bg-success' : 'text-bg-danger';
-        const html = `<div id="${id}" class="toast align-items-center ${colorClass} border-0 show p-2"><div class="d-flex"><div class="toast-body fs-6"><i class="bi ${icon} me-2"></i> ${message}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div></div>`;
+        const html = `<div id="${id}" class="toast align-items-center ${colorClass} border-0 show p-2"><div class="d-flex"><div class="toast-body fs-6 text-white"><i class="bi ${icon} me-2"></i> ${message}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div></div>`;
         container.insertAdjacentHTML('beforeend', html);
         setTimeout(() => { document.getElementById(id)?.remove(); }, 4000);
     }
@@ -509,6 +542,17 @@
             document.getElementById('adminPayerCode').value = val.includes(' - ') ? val.split(' - ').pop() : val; 
         }); 
     }
+
+    document.getElementById('addCodeForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        const res = await fetch('/api/codes', { method:'POST', body: formData });
+        const data = await res.json();
+        if(data.success) {
+            showNotification("Code added successfully!");
+            setTimeout(() => window.location.reload(), 1500);
+        } else showNotification(data.error, 'danger');
+    });
 
     document.getElementById('importPricingForm').addEventListener('submit', async function(e) {
         e.preventDefault();

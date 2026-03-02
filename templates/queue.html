@@ -10,7 +10,6 @@
         :root { --bg-dark: #0d1117; --card-dark: #161b22; --border-dark: #30363d; --text-main: #e6edf3; --text-muted: #8b949e; --accent-blue: #1f6feb; --sidebar-width: 260px; }
         body { background-color: var(--bg-dark); color: var(--text-main); font-family: 'Inter', sans-serif; overflow-x: hidden; }
         
-        /* STRICT WHITE TEXT FIX */
         .form-control, .form-select { background-color: #0d1117 !important; border: 1px solid var(--border-dark) !important; color: #ffffff !important; padding: 10px; }
         option { background-color: #0d1117; color: #ffffff; }
 
@@ -35,15 +34,12 @@
         .btn-add-queue { background: transparent; border: 1px solid var(--border-dark); color: white; width: 100%; padding: 15px; border-radius: 8px; font-weight: 500; transition: 0.2s; text-align: center; cursor: pointer; margin-top: 15px;}
         .btn-add-queue:hover { background: #21262d; border-color: #484f58; }
 
-        /* Expanded Panel */
         .queue-expanded { border-top: 1px solid var(--border-dark); padding: 20px; display: none; background: rgba(13, 17, 23, 0.5); border-radius: 0 0 8px 8px;}
         .panel-box { background: var(--card-dark); border: 1px solid var(--border-dark); border-radius: 8px; padding: 20px; margin-bottom: 15px; }
         
-        /* Interactive Buttons */
         .tiny-btn { background: #21262d; border: 1px solid var(--border-dark); color: var(--text-muted); padding: 5px 12px; border-radius: 6px; font-size: 0.8rem; margin-right: 6px; margin-bottom: 8px; display: inline-block; cursor: pointer; transition: 0.2s;}
         .tiny-btn:hover { color: white; border-color: #8b949e; background: #30363d;}
         
-        /* TWO DIFFERENT ACTIVE STATES */
         .tiny-btn.active-followup { background-color: var(--accent-blue) !important; color: white !important; border-color: var(--accent-blue) !important; }
         .tiny-btn.active-code { background-color: rgba(31, 111, 235, 0.2); border-color: var(--accent-blue); color: #58a6ff; font-weight: bold; }
         
@@ -51,7 +47,6 @@
         .item-row { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #21262d; padding: 8px 0; }
         .item-row:last-child { border-bottom: none; }
 
-        /* Modal Styles */
         .modal-content { background-color: var(--card-dark); border: 1px solid var(--border-dark); border-radius: 12px; }
         .modal-header { border-bottom: 1px solid var(--border-dark); }
         .modal-body { max-height: 65vh; overflow-y: auto; padding: 0; }
@@ -74,6 +69,7 @@
         <a href="/queue" class="nav-link active"><i class="bi bi-list-task"></i> Encounter Queue</a>
         
         {% if session.role == 'admin' %}
+        <a href="/checkout" class="nav-link"><i class="bi bi-cash-coin"></i> Checkout</a>
         <a href="/ma-review" class="nav-link"><i class="bi bi-clipboard-check"></i> MA Review</a>
         <hr class="border-secondary mx-3 opacity-25 mt-4">
         <a href="/admin" class="nav-link text-info"><i class="bi bi-gear-wide-connected"></i> Admin Settings</a>
@@ -96,11 +92,6 @@
                         <option value="{{ loc.id }}" class="text-white" {% if current_user.current_location_id == loc.id %}selected{% endif %}>{{ loc.name }}</option>
                     {% endfor %}
                 </select>
-            </div>
-            
-            <div class="text-end">
-                <div class="text-white small mb-1">Daily Total</div>
-                <h4 class="text-white fw-bold mb-0">$0.00</h4>
             </div>
         </div>
 
@@ -131,10 +122,14 @@
                             <div class="text-white mt-1" style="font-size: 0.75rem;">{{ p.payer_name }} {% if p.member_id %}• {{ p.member_id }}{% endif %}</div>
                         </div>
                     </div>
+                    
                     <div class="d-flex align-items-center">
-                        <div class="queue-financials">
-                            Co:{{ p.copay }} Ded:{{ p.deductible_rem }} OOP:{{ p.oop_rem }}
-                        </div>
+                        <div class="queue-financials">Co:{{ p.copay }} Ded:{{ p.deductible_rem }} OOP:{{ p.oop_rem }}</div>
+                        
+                        <div id="flag-display-{{ p.id }}" class="me-2 d-flex align-items-center gap-2"></div>
+                        
+                        <div id="header-total-{{ p.id }}" class="badge bg-dark border border-secondary fs-6 py-2 px-3 me-3 text-white" style="display:none; letter-spacing: 0.5px; font-weight: bold;">$0.00</div>
+                        
                         <button class="btn btn-sm text-muted me-3 border-0 p-1" onclick="removeFromQueue(event, {{ p.id }})" title="Remove from queue">
                             <i class="bi bi-trash fs-5"></i>
                         </button>
@@ -382,24 +377,27 @@
 
         const activeCodes = {};
         window.patientEncounterData = {};
-        window.encounterFlags = {}; // Stores 'review', 'caution', or null per patient
+        window.encounterFlags = {}; 
 
         function toggleFlag(patientId, flagType) {
             const btnReview = document.getElementById(`btn-review-${patientId}`);
             const btnCaution = document.getElementById(`btn-caution-${patientId}`);
+            const flagDisplay = document.getElementById(`flag-display-${patientId}`);
             
-            // Reset to outline
             btnReview.className = "btn btn-sm btn-outline-success border-dark text-success me-2 px-3 py-2 flag-btn";
             btnCaution.className = "btn btn-sm btn-outline-danger border-dark text-danger px-3 py-2 flag-btn";
             
             if (window.encounterFlags[patientId] === flagType) {
                 window.encounterFlags[patientId] = null;
+                flagDisplay.innerHTML = '';
             } else {
                 window.encounterFlags[patientId] = flagType;
                 if (flagType === 'review') {
                     btnReview.className = "btn btn-sm btn-success me-2 px-3 py-2 flag-btn text-white fw-bold";
+                    flagDisplay.innerHTML = '<i class="bi bi-emoji-smile-fill text-success fs-4"></i>';
                 } else {
                     btnCaution.className = "btn btn-sm btn-danger px-3 py-2 flag-btn text-white fw-bold";
+                    flagDisplay.innerHTML = '<span class="badge me-2 px-3 py-1" style="background-color: rgba(210, 153, 34, 0.15); border: 1px solid #d29922; color: #d29922; font-weight: 600;"><i class="bi bi-exclamation-circle me-1"></i> Codes Matter</span><i class="bi bi-emoji-frown-fill text-danger fs-4"></i>';
                 }
             }
         }
@@ -417,6 +415,7 @@
             
             const cartEl = document.getElementById('cart-' + patientId);
             const badgeEl = document.getElementById('sel-count-' + patientId);
+            const totalEl = document.getElementById('header-total-' + patientId);
             
             if (activeCodes[patientId].length > 0) {
                 cartEl.style.display = 'block';
@@ -426,6 +425,7 @@
             } else {
                 cartEl.style.display = 'none';
                 badgeEl.style.display = 'none';
+                totalEl.style.display = 'none';
                 window.patientEncounterData[patientId] = null;
             }
         }
@@ -452,6 +452,7 @@
 
                     const itemsContainer = document.getElementById('cart-items-' + patientId);
                     const totalContainer = document.getElementById('cart-total-' + patientId);
+                    const headerTotalContainer = document.getElementById('header-total-' + patientId);
                     
                     let itemsHtml = '';
                     data.items.forEach(item => {
@@ -466,9 +467,9 @@
                             priceDisplay = `<span class="text-white">$${item.final_price.toFixed(2)}</span>`;
                         }
 
-                        let badgeHtml = item.type === 'E&M' 
-                            ? `<span class="badge bg-white text-dark ms-2" style="font-size: 0.55rem; padding: 3px 5px; font-weight: 800;">E&M</span>` 
-                            : ``;
+                        let badgeHtml = '';
+                        if (item.type === 'E&M') badgeHtml = `<span class="badge bg-white text-dark ms-2" style="font-size: 0.55rem; padding: 3px 5px; font-weight: 800;">E&M</span>`;
+                        else if (item.type === 'ADD-ON') badgeHtml = `<span class="badge bg-secondary text-white ms-2" style="font-size: 0.55rem; padding: 3px 5px; font-weight: 800;">ADD-ON</span>`;
 
                         itemsHtml += `
                             <div class="item-row">
@@ -485,6 +486,8 @@
                     
                     itemsContainer.innerHTML = itemsHtml;
                     totalContainer.innerText = `$${data.patient_resp.toFixed(2)}`;
+                    headerTotalContainer.innerText = `$${data.total_cost.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                    headerTotalContainer.style.display = 'inline-block';
                     
                 } else {
                     showNotification(data.error, 'danger'); 
@@ -512,7 +515,7 @@
                         total_cost: data.total_cost,
                         patient_resp: data.patient_resp,
                         items: data.items,
-                        flag: activeFlag // Send the review/caution state
+                        flag: activeFlag 
                     })
                 });
                 

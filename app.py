@@ -33,6 +33,9 @@ db.init_app(app)
 migrate = Migrate(app, db)
 os.makedirs('uploads', exist_ok=True)
 
+# Helper array to auto-flag standard add-on codes from the client's Replit
+KNOWN_ADD_ON_CODES = {'11103', '11105', '11107', '17003'}
+
 PVERIFY_CLIENT_ID = os.environ.get('PVERIFY_OAUTH_CLIENT_ID')
 PVERIFY_CLIENT_SECRET = os.environ.get('PVERIFY_OAUTH_CLIENT_SECRET')
 PVERIFY_API_CLIENT_ID = os.environ.get('PVERIFY_API_CLIENT_ID')
@@ -284,17 +287,11 @@ def change_code():
 @app.route('/logout')
 def logout(): session.clear(); return redirect(url_for('index'))
 
-
-# ==========================================
-# ENCOUNTER QUEUE & MA REVIEW ROUTES
-# ==========================================
-
 @app.route('/queue')
 def encounter_queue():
     if not session.get('role'): return redirect(url_for('index'))
     all_patients = Patient.query.order_by(Patient.first_name.asc()).all()
-    # ONLY SHOW IF IT HAS NOT BEEN SUBMITTED YET
-    queue_patients = [p for p in all_patients if p.in_queue and p.encounter_status != 'submitted']
+    queue_patients = [p for p in all_patients if p.in_queue and p.encounter_status == 'pending']
     providers = User.query.filter_by(role='provider').all()
     current_date = datetime.now().strftime("%A, %B %d, %Y")
     
@@ -348,7 +345,7 @@ def submit_encounter():
         p.encounter_total = data.get('total_cost', 0.0)
         p.patient_resp = data.get('patient_resp', 0.0)
         p.encounter_items = json.dumps(data.get('items', []))
-        p.encounter_flag = data.get('flag', None)
+        p.encounter_flag = data.get('flag', None) 
         db.session.commit()
         return jsonify({"success": True})
     return jsonify({"success": False, "error": "Patient not found"})
@@ -356,21 +353,60 @@ def submit_encounter():
 @app.route('/ma-review')
 def ma_review():
     if session.get('role') != 'admin': return redirect(url_for('index'))
-    
-    # Fetch patients who have had their queue submitted
     patients = Patient.query.filter_by(encounter_status='submitted').order_by(Patient.id.desc()).all()
-    
-    # Parse the saved JSON text back into a list of dictionaries for Jinja to render easily
     for p in patients:
         p.parsed_items = json.loads(p.encounter_items) if p.encounter_items else []
-        
     current_date = datetime.now().strftime("%A, %B %d, %Y")
     return render_template("ma_review.html", patients=patients, current_date=current_date)
 
+@app.route('/api/ma-review/complete/<int:patient_id>', methods=['POST'])
+def complete_review(patient_id):
+    if session.get('role') != 'admin': return jsonify({"error": "Unauthorized"}), 403
+    p = Patient.query.get(patient_id)
+    if p:
+        p.encounter_status = 'reviewed'
+        db.session.commit()
+        return jsonify({"success": True})
+    return jsonify({"success": False})
 
-# ==========================================
-# CODES AND PRICING ROUTES
-# ==========================================
+@app.route('/checkout')
+def checkout():
+    if not session.get('role'): return redirect(url_for('index'))
+    patients = Patient.query.filter_by(encounter_status='reviewed').all()
+    for p in patients:
+        p.parsed_items = json.loads(p.encounter_items) if p.encounter_items else []
+    current_date = datetime.now().strftime("%A, %B %d, %Y")
+    return render_template("checkout.html", patients=patients, current_date=current_date)
+
+@app.route('/api/checkout/complete/<int:patient_id>', methods=['POST'])
+def complete_checkout(patient_id):
+    if not session.get('role'): return jsonify({"error": "Unauthorized"}), 403
+    p = Patient.query.get(patient_id)
+    if p:
+        p.encounter_status = 'paid'
+        p.in_queue = False # Remove from active flows entirely
+        db.session.commit()
+        return jsonify({"success": True})
+    return jsonify({"success": False})
+
+@app.route('/api/codes', methods=['POST'])
+def add_medical_code():
+    if session.get('role') != 'admin': return jsonify({"error": "Unauthorized"}), 403
+    
+    code_val = request.form.get('code')
+    desc_val = request.form.get('description')
+    
+    if not code_val: return jsonify({"success": False, "error": "Code is required"})
+    
+    existing = MedicalCode.query.filter_by(code=code_val).first()
+    if existing: return jsonify({"success": False, "error": "Code already exists"})
+    
+    is_add_on = request.form.get('is_add_on') == 'on' or code_val in KNOWN_ADD_ON_CODES
+    
+    new_code = MedicalCode(code=code_val, description=desc_val, is_add_on=is_add_on)
+    db.session.add(new_code)
+    db.session.commit()
+    return jsonify({"success": True})
 
 @app.route('/api/pricing/import', methods=['POST'])
 def import_csv_pricing():
@@ -399,7 +435,7 @@ def import_csv_pricing():
                 
                 mc = MedicalCode.query.filter_by(code=code_val).first()
                 if not mc:
-                    mc = MedicalCode(code=code_val, description=desc_val)
+                    mc = MedicalCode(code=code_val, description=desc_val, is_add_on=(code_val in KNOWN_ADD_ON_CODES))
                     db.session.add(mc)
                     db.session.flush() 
                 
@@ -414,6 +450,7 @@ def import_csv_pricing():
         return jsonify({"success": True, "message": f"Successfully imported {records_processed} pricing records."})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
+
 
 @app.route('/api/calculate-visit', methods=['POST'])
 def calculate_visit():
@@ -438,14 +475,18 @@ def calculate_visit():
         search_payers.append(mapped_code)
     
     em_codes = []
-    procedures = []
+    primary_procedures = []
+    addon_procedures = []
     
     for code in selected_codes:
         mc = MedicalCode.query.filter_by(code=code).first()
         price = 0.0
         desc = ""
+        is_add_on = False
+        
         if mc:
             desc = mc.description
+            is_add_on = mc.is_add_on 
             pr = Pricing.query.filter(Pricing.payer_id.in_(search_payers), Pricing.code_id == mc.id, Pricing.location_id == loc_id).first()
             if pr: price = pr.price
             
@@ -455,22 +496,28 @@ def calculate_visit():
             "desc": desc,
             "base_price": price, 
             "final_price": price, 
-            "type": "E&M" if is_em else "PROC", 
+            "type": "E&M" if is_em else ("ADD-ON" if is_add_on else "PROC"), 
             "discounted": False
         }
         
-        if is_em: em_codes.append(item)
-        else: procedures.append(item)
+        if is_em: 
+            em_codes.append(item)
+        elif is_add_on:
+            addon_procedures.append(item)
+        else: 
+            primary_procedures.append(item)
             
-    procedures.sort(key=lambda x: x["base_price"], reverse=True)
-    for i, proc in enumerate(procedures):
+    # 1. Apply MCCR (50% discount) to primary procedures ONLY. Add-ons are exempt.
+    primary_procedures.sort(key=lambda x: x["base_price"], reverse=True)
+    for i, proc in enumerate(primary_procedures):
         if i > 0 and proc["base_price"] > 0:
             proc["final_price"] = proc["base_price"] * 0.5
             proc["discounted"] = True
             
-    final_list = em_codes + procedures
+    final_list = em_codes + primary_procedures + addon_procedures
     total_visit_cost = sum(item["final_price"] for item in final_list)
     
+    # 2. Parse Financials safely
     try:
         ded_str = re.sub(r'[^\d.]', '', str(patient.deductible_rem))
         ded_rem = float(ded_str) if ded_str else 0.0
@@ -478,21 +525,54 @@ def calculate_visit():
         ded_rem = 0.0
         
     try:
-        copay_str = re.sub(r'[^\d.]', '', str(patient.copay))
-        copay = float(copay_str) if copay_str else 0.0
+        coins_str = re.sub(r'[^\d.]', '', str(patient.coins))
+        coins_pct = (float(coins_str) / 100.0) if coins_str else 0.0
     except:
-        copay = 0.0
+        coins_pct = 0.0
 
-    if ded_rem > 0:
-        patient_resp = min(total_visit_cost, ded_rem)
-    else:
-        patient_resp = min(total_visit_cost, copay)
+    raw_copay = str(patient.copay).strip().lower()
+    is_copay_d = raw_copay == 'd'
+    
+    try:
+        fixed_copay = 0.0 if is_copay_d else float(re.sub(r'[^\d.]', '', raw_copay))
+    except:
+        fixed_copay = 0.0
+
+    # 3. Calculate Patient Responsibility using Client Logic
+    patient_resp = 0.0
+    current_deductible = ded_rem
+
+    for item in em_codes:
+        if is_copay_d:
+            if current_deductible > 0:
+                applied = min(item["final_price"], current_deductible)
+                patient_resp += applied
+                current_deductible -= applied
+                remaining_cost = item["final_price"] - applied
+                if remaining_cost > 0:
+                    patient_resp += (remaining_cost * coins_pct)
+            else:
+                 patient_resp += (item["final_price"] * coins_pct)
+        else:
+            patient_resp += fixed_copay
+
+    all_procs = primary_procedures + addon_procedures
+    for item in all_procs:
+        if current_deductible > 0:
+            applied = min(item["final_price"], current_deductible)
+            patient_resp += applied
+            current_deductible -= applied
+            remaining_cost = item["final_price"] - applied
+            if remaining_cost > 0:
+                patient_resp += (remaining_cost * coins_pct)
+        else:
+            patient_resp += (item["final_price"] * coins_pct)
 
     return jsonify({
         "success": True, 
         "items": final_list, 
         "total_cost": total_visit_cost,
-        "patient_resp": patient_resp
+        "patient_resp": round(patient_resp, 2)
     })
 
 if __name__ == "__main__": app.run(host="0.0.0.0", port=8081)
