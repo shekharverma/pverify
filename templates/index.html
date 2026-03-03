@@ -102,11 +102,12 @@
         {% endif %}
 
         {% if role == 'admin' %}
+        <a href="/checkout" class="nav-link"><i class="bi bi-cash-coin"></i> Checkout</a>
         <a href="/ma-review" class="nav-link"><i class="bi bi-clipboard-check"></i> MA Review</a>
         {% endif %}
         
         {% if role == 'admin' or 'calculator' in perms %}
-        <a href="#" class="nav-link"><i class="bi bi-calculator"></i> Visit Calculator</a>
+        <a href="/visit-calculator" class="nav-link"><i class="bi bi-calculator"></i> Visit Calculator</a>
         {% endif %}
         
         {% if role == 'admin' %}
@@ -637,7 +638,6 @@
     const pInput = document.getElementById('payerInput');
     if(pInput) { pInput.addEventListener('input', function() { const val = this.value; document.getElementById('payerCode').value = val.includes(' - ') ? val.split(' - ').pop() : val; }); }
 
-    // --- ADD TO QUEUE SCRIPT ---
     async function addToQueue(id) {
         try {
             const res = await fetch('/api/queue/add', {

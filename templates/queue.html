@@ -71,6 +71,13 @@
         {% if session.role == 'admin' %}
         <a href="/checkout" class="nav-link"><i class="bi bi-cash-coin"></i> Checkout</a>
         <a href="/ma-review" class="nav-link"><i class="bi bi-clipboard-check"></i> MA Review</a>
+        {% endif %}
+        
+        {% if session.role == 'admin' or (session.permissions and 'calculator' in session.permissions) %}
+        <a href="/visit-calculator" class="nav-link"><i class="bi bi-calculator"></i> Visit Calculator</a>
+        {% endif %}
+        
+        {% if session.role == 'admin' %}
         <hr class="border-secondary mx-3 opacity-25 mt-4">
         <a href="/admin" class="nav-link text-info"><i class="bi bi-gear-wide-connected"></i> Admin Settings</a>
         {% endif %}
@@ -370,10 +377,6 @@
             const data = await res.json();
             if(data.success) window.location.reload();
         }
-
-        // ==========================================
-        // DYNAMIC PRICING ENGINE & SUBMIT LOGIC
-        // ==========================================
 
         const activeCodes = {};
         window.patientEncounterData = {};

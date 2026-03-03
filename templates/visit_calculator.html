@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Visit Calculator - MedBill Pro</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root { 
+            --bg-dark: #0d1117; 
+            --card-dark: #161b22; 
+            --border-dark: #30363d; 
+            --text-main: #e6edf3; 
+            --text-muted: #8b949e; 
+            --accent-blue: #1f6feb; 
+            --sidebar-width: 260px; 
+        }
+        
+        body { background-color: var(--bg-dark); color: var(--text-main); font-family: 'Inter', sans-serif; overflow-x: hidden; }
+        
+        /* Typography Overrides */
+        h1, h2, h3, h4, h5, h6, p, label, span, div, strong, i { color: var(--text-main); }
+        .text-white { color: #ffffff !important; }
+        .text-muted { color: var(--text-muted) !important; }
+        .text-info { color: #58a6ff !important; }
+        .text-success { color: #3fb950 !important; }
+        .text-warning { color: #d29922 !important; }
+        .text-danger { color: #f85149 !important; }
+
+        /* Form Controls */
+        .form-control, .form-select, input, select { 
+            background-color: var(--bg-dark) !important; 
+            border: 1px solid var(--border-dark) !important; 
+            color: #ffffff !important; 
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+        .form-control:focus, .form-select:focus { 
+            border-color: var(--accent-blue) !important; 
+            box-shadow: 0 0 0 3px rgba(31, 111, 235, 0.2) !important; 
+        }
+        
+        /* Layout */
+        .sidebar { width: var(--sidebar-width); height: 100vh; position: fixed; background-color: var(--card-dark); border-right: 1px solid var(--border-dark); padding: 25px 20px; }
+        .brand { font-size: 1.3rem; font-weight: 700; color: white; margin-bottom: 40px; display: flex; align-items: center; gap: 10px; }
+        .nav-link { color: var(--text-muted) !important; padding: 10px 15px; border-radius: 8px; margin-bottom: 5px; text-decoration: none; font-weight: 500; display: block; transition: 0.2s;}
+        .nav-link:hover, .nav-link.active { background-color: rgba(31, 111, 235, 0.1); color: var(--accent-blue) !important; }
+        .nav-link i { margin-right: 12px; font-size: 1.2rem; vertical-align: text-bottom;}
+        
+        .main-content { margin-left: var(--sidebar-width); padding: 30px 40px; display: flex; gap: 30px; }
+        .left-pane { flex: 1.8; }
+        .right-pane { flex: 1; min-width: 350px; max-width: 450px; }
+
+        /* Panels */
+        .panel-box { background: var(--card-dark); border: 1px solid var(--border-dark); border-radius: 12px; padding: 20px; margin-bottom: 24px; }
+        .panel-title { font-size: 0.95rem; font-weight: 600; margin-bottom: 15px; display: flex; align-items: center; }
+        
+        /* Quick Codes Styling */
+        #quickCodesContainer { display: flex; flex-wrap: wrap; gap: 10px; }
+        .quick-btn { background: #21262d; border: 1px solid var(--border-dark); color: #ffffff; padding: 8px 12px; border-radius: 6px; font-weight: 600; font-family: monospace; font-size: 0.9rem; cursor: pointer; transition: 0.2s;}
+        .quick-btn:hover { border-color: #58a6ff; background: #30363d; }
+        .quick-btn.active { background: rgba(31, 111, 235, 0.2); border-color: #1f6feb; color: #ffffff; }
+        
+        /* Quantity Controls (Add-ons) */
+        .qty-wrapper { display: inline-flex; align-items: center; border: 1px solid var(--border-dark); border-radius: 6px; padding: 0; background: transparent; transition: 0.2s;}
+        .qty-wrapper.active { border-color: var(--accent-blue); background: rgba(31, 111, 235, 0.15); }
+        .qty-wrapper span { color: var(--text-muted); padding: 0 10px; font-family: monospace; font-size: 0.9rem; font-weight: 500;}
+        .qty-wrapper.active span { color: #58a6ff; font-weight: 600;}
+        .qty-btn { background: transparent; border: none; color: var(--text-muted); padding: 8px 12px; cursor: pointer; font-size: 1rem; line-height: 1; transition: 0.2s;}
+        .qty-btn:hover { color: white; }
+        .qty-wrapper.active .qty-btn { color: #58a6ff; }
+        .qty-input { width: 30px; background: transparent; border: none; color: white !important; text-align: center; font-weight: 600; font-size: 0.95rem; padding: 0; pointer-events: none;}
+
+        /* Code Rows & Checkboxes */
+        .code-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--border-dark); cursor: pointer; transition: 0.2s; background: transparent; }
+        .code-row:hover { background: rgba(255,255,255,0.02); }
+        .code-row:last-child { border-bottom: none; }
+        
+        .form-check-input { width: 18px; height: 18px; background-color: transparent !important; border: 2px solid #484f58 !important; border-radius: 4px; cursor: pointer; transition: 0.2s; margin-top: 0; }
+        .form-check-input:checked { background-color: var(--accent-blue) !important; border-color: var(--accent-blue) !important; }
+        
+        /* Badges */
+        .badge-em { background-color: #30363d; color: var(--text-muted); border-radius: 4px; padding: 3px 6px; font-size: 0.65rem; font-weight: 600; letter-spacing: 0.5px;}
+        
+        /* Accordion Overrides */
+        .accordion-item { background-color: transparent; border: 1px solid var(--border-dark); margin-bottom: 12px; border-radius: 8px !important; overflow: hidden; }
+        .accordion-button { background-color: transparent !important; color: white !important; padding: 16px 20px; font-weight: 600; font-size: 0.95rem; box-shadow: none !important; }
+        .accordion-button:not(.collapsed) { border-bottom: 1px solid var(--border-dark); background-color: rgba(255,255,255,0.02) !important;}
+        .accordion-button::after { filter: invert(1) grayscale(100%) brightness(200%); width: 1rem; height: 1rem; background-size: 1rem;}
+        .accordion-body { padding: 0; background-color: transparent; }
+        
+        /* Right Pane Specifics */
+        .bd-card { padding: 12px 0; border-bottom: 1px dashed var(--border-dark); }
+        .bd-card:last-child { border-bottom: none; padding-bottom: 0;}
+        
+        .summary-box { padding: 16px 20px; border-radius: 8px; margin-bottom: 12px; border: 1px solid transparent; }
+        .summary-box.patient-resp { background: rgba(46, 160, 67, 0.1); border-color: rgba(46, 160, 67, 0.4); }
+        .summary-box.ins-contrib { background: rgba(31, 111, 235, 0.1); border-color: rgba(31, 111, 235, 0.4); }
+        
+        .input-label { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 6px; display: block;}
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="brand"><i class="bi bi-box-seam-fill text-primary"></i> MedBill Pro</div>
+        <div class="mb-4">
+            <div class="text-muted small fw-bold mb-2 px-3 text-uppercase" style="font-size: 0.7rem; letter-spacing: 0.5px;">Navigation</div>
+            <a href="/" class="nav-link"><i class="bi bi-people"></i> Patients</a>
+            <a href="/queue" class="nav-link"><i class="bi bi-list-task"></i> Encounter Queue</a>
+            <a href="/checkout" class="nav-link"><i class="bi bi-cash-coin"></i> Checkout</a>
+            <a href="/ma-review" class="nav-link"><i class="bi bi-clipboard-check"></i> MA Review</a>
+            
+            {% if session.role == 'admin' or (session.permissions and 'calculator' in session.permissions) %}
+            <a href="/visit-calculator" class="nav-link active"><i class="bi bi-calculator"></i> Visit Calculator</a>
+            {% endif %}
+            
+            {% if session.role == 'admin' %}
+            <a href="/admin" class="nav-link"><i class="bi bi-gear-wide-connected"></i> Admin Settings</a>
+            {% endif %}
+        </div>
+
+        <div class="mt-4 pt-4 border-top border-secondary">
+            <div class="text-muted small fw-bold mb-3 px-3 text-uppercase" style="font-size: 0.7rem; letter-spacing: 0.5px;">Billing Rules</div>
+            <div class="px-3" style="font-size: 0.8rem; line-height: 1.5; color: var(--text-muted);">
+                <div class="mb-3">
+                    <strong class="text-info d-block mb-1">MCCR</strong> 
+                    Highest procedure: 100%, all others: 50%. Add-on codes are never reduced.
+                </div>
+                <div class="mb-3">
+                    <strong class="text-info d-block mb-1">E&M</strong> 
+                    Always paid separately from procedures, never bundled.
+                </div>
+                <div>
+                    <strong class="text-info d-block mb-1">Copay "d"</strong> 
+                    $0 copay = E&M applies to deductible.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="left-pane">
+            <div class="d-flex align-items-center mb-4">
+                <i class="bi bi-arrow-left text-muted fs-5 me-3 cursor-pointer" onclick="window.history.back()"></i>
+                <div>
+                    <h3 class="text-white fw-bold m-0 fs-4">Visit Value Calculator</h3>
+                    <p class="text-white small m-0 mt-1">Calculate total visit value, patient responsibility, and insurance portion</p>
+                </div>
+            </div>
+
+            <div class="panel-box d-flex justify-content-between align-items-center mb-4 pb-4">
+                <div class="flex-grow-1 me-4">
+                    <label class="panel-title"><i class="bi bi-file-earmark-text text-info me-2"></i> Select Payor</label>
+                    <select class="form-select fw-bold py-2" id="payorSelect" onchange="fetchPrices()">
+                        <option value="">Choose a payor...</option>
+                        {% for p in payors %}
+                        <option value="{{ p }}">{{ p }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div style="width: 200px;">
+                    <label class="panel-title"><i class="bi bi-geo-alt text-info me-2"></i> Facility</label>
+                    <select class="form-select fw-bold py-2" id="locSelect" onchange="fetchPrices()">
+                        {% for loc in available_locations %}
+                        <option value="{{ loc.id }}" {% if current_user.current_location_id == loc.id %}selected{% endif %}>{{ loc.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="ms-4 mt-4 pt-1">
+                    <button class="btn btn-sm text-white border-secondary fw-bold border px-3" onclick="clearCalculator()"><i class="bi bi-x-lg me-1"></i> Clear</button>
+                </div>
+            </div>
+
+            <div id="pricingErrorAlert" class="panel-box mb-4" style="display: none; border-color: rgba(248, 81, 73, 0.5); background-color: rgba(248, 81, 73, 0.05);">
+                <div class="d-flex align-items-center text-danger">
+                    <i class="bi bi-exclamation-triangle-fill fs-3 me-3"></i>
+                    <div>
+                        <strong class="d-block" style="font-size: 1.1rem; color: #ff7b72;">No Pricing Data Found</strong>
+                        <span class="text-white small">There is no fee schedule configured for this Payor at this Facility Location. Please upload pricing in Admin Settings.</span>
+                    </div>
+                </div>
+            </div>
+
+            <div id="codesContainer" style="display: none; opacity: 0.5; pointer-events: none;">
+                
+                <div class="mb-4">
+                    <label class="panel-title"><i class="bi bi-lightning-charge-fill text-warning me-2"></i> Quick Codes <i class="bi bi-info-circle text-muted ms-2 fw-normal" style="font-size:0.8rem;" title="Frequently used codes"></i></label>
+                    <div id="quickCodesContainer">
+                        <button class="quick-btn" id="qc-99203" onclick="toggleQuickCode('99203')">99203</button>
+                        <button class="quick-btn" id="qc-99204" onclick="toggleQuickCode('99204')">99204</button>
+                        <button class="quick-btn" id="qc-99213" onclick="toggleQuickCode('99213')">99213</button>
+                        <button class="quick-btn" id="qc-99214" onclick="toggleQuickCode('99214')">99214</button>
+                        <button class="quick-btn" id="qc-17000" onclick="toggleQuickCode('17000')">17000</button>
+                        
+                        <div class="qty-wrapper" id="wrap-qc-17003" style="border-color: #58a6ff;">
+                            <span class="text-info">17003</span>
+                            <button class="qty-btn text-white" onclick="updateQty(event, '17003', -1)"><i class="bi bi-dash"></i></button>
+                            <input type="text" class="qty-input text-white" id="qty-qc-17003" value="0">
+                            <button class="qty-btn text-white" onclick="updateQty(event, '17003', 1)"><i class="bi bi-plus"></i></button>
+                        </div>
+
+                        <button class="quick-btn" id="qc-17004" onclick="toggleQuickCode('17004')">17004</button>
+                        <button class="quick-btn" id="qc-17110" onclick="toggleQuickCode('17110')">17110</button>
+                        <button class="quick-btn" id="qc-11102" onclick="toggleQuickCode('11102')">11102</button>
+                        
+                        <div class="qty-wrapper mt-2" id="wrap-qc-11103" style="border-color: #58a6ff;">
+                            <span class="text-info">11103</span>
+                            <button class="qty-btn text-white" onclick="updateQty(event, '11103', -1)"><i class="bi bi-dash"></i></button>
+                            <input type="text" class="qty-input text-white" id="qty-qc-11103" value="0">
+                            <button class="qty-btn text-white" onclick="updateQty(event, '11103', 1)"><i class="bi bi-plus"></i></button>
+                        </div>
+
+                        <button class="quick-btn mt-2" id="qc-11300" onclick="toggleQuickCode('11300')">11300</button>
+                        <button class="quick-btn mt-2" id="qc-11301" onclick="toggleQuickCode('11301')">11301</button>
+                        <button class="quick-btn mt-2" id="qc-11302" onclick="toggleQuickCode('11302')">11302</button>
+                        <button class="quick-btn mt-2" id="qc-11310" onclick="toggleQuickCode('11310')">11310</button>
+                        <button class="quick-btn mt-2" id="qc-11311" onclick="toggleQuickCode('11311')">11311</button>
+                        <button class="quick-btn mt-2" id="qc-11900" onclick="toggleQuickCode('11900')">11900</button>
+                        <button class="quick-btn mt-2" id="qc-11901" onclick="toggleQuickCode('11901')">11901</button>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="panel-title"><i class="bi bi-stethoscope text-info me-2"></i> E&M Codes <i class="bi bi-info-circle text-muted ms-2 fw-normal" style="font-size:0.8rem;"></i></label>
+                    <div class="panel-box p-0 border-0" style="background-color: transparent;">
+                        <div class="border rounded-3" style="border-color: var(--border-dark) !important; overflow: hidden;" id="emList"></div>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="panel-title"><i class="bi bi-bandaid text-info me-2"></i> CPT Codes (Procedures) <i class="bi bi-info-circle text-muted ms-2 fw-normal" style="font-size:0.8rem;"></i></label>
+                    <div class="accordion" id="cptAccordion"></div>
+                </div>
+
+            </div>
+        </div>
+
+        <div class="right-pane">
+            
+            <div class="panel-box">
+                <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom border-dark">
+                    <h6 class="text-white m-0 fw-bold"><i class="bi bi-shield-check text-success me-2"></i> Patient Insurance</h6>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="input-label fw-bold text-white">Load Patient Data</label>
+                    <select class="form-select py-2" id="patientSelect" onchange="loadPatientData(this)">
+                        <option value="">Select a patient to auto-fill...</option>
+                        {% for p in patients %}
+                        <option value="{{ p.id }}" data-copay="{{ p.copay }}" data-coins="{{ p.coins }}" data-ded="{{ p.deductible_rem }}" data-oop="{{ p.oop_rem }}">{{ p.first_name }} {{ p.last_name }} ({{ p.payer_name }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="input-label fw-bold text-white">Copay ($) — enter "d" if E&M applies to deductible</label>
+                    <input type="text" class="form-control py-2 fw-bold" id="inputCopay" value="0.00" oninput="calculate()">
+                </div>
+                
+                <div class="mb-3">
+                    <label class="input-label fw-bold text-white">Surgical Coinsurance (%)</label>
+                    <input type="number" class="form-control py-2 fw-bold" id="inputCoins" value="0" oninput="calculate()">
+                </div>
+                
+                <div class="mb-3">
+                    <label class="input-label fw-bold text-white">Remaining Deductible ($)</label>
+                    <input type="number" class="form-control py-2 fw-bold" id="inputDed" value="0.00" oninput="calculate()">
+                </div>
+                
+                <div class="mb-2">
+                    <label class="input-label fw-bold text-white">Remaining OOP ($)</label>
+                    <input type="number" class="form-control py-2 fw-bold" id="inputOop" value="0.00" oninput="calculate()">
+                </div>
+            </div>
+
+            <div class="panel-box">
+                <h6 class="text-white mb-3 fw-bold border-bottom border-dark pb-3"><i class="bi bi-receipt text-info me-2"></i> Code Breakdown</h6>
+                <div id="breakdownContainer" class="text-white small fw-bold py-2">No codes selected.</div>
+            </div>
+
+            <div class="panel-box pb-3">
+                <h6 class="text-white mb-3 fw-bold border-bottom border-dark pb-3"><i class="bi bi-currency-dollar text-success me-1"></i> Visit Summary</h6>
+                
+                <div class="d-flex justify-content-between mb-3 px-1">
+                    <span class="text-white fw-bold">Total Visit</span>
+                    <span class="text-info fw-bold fs-5" id="sumTotal">$0.00</span>
+                </div>
+                
+                <div class="d-flex justify-content-between mb-3 px-1">
+                    <span class="text-white fw-bold">Copay Applied</span>
+                    <span class="text-white fw-bold" id="sumCopay">$0.00</span>
+                </div>
+                
+                <div class="summary-box patient-resp d-flex justify-content-between align-items-center mb-3">
+                    <span class="text-white fw-bold">Patient Responsibility</span>
+                    <span class="text-success fw-bold fs-5" id="sumResp">$0.00</span>
+                </div>
+                
+                <div class="summary-box ins-contrib d-flex justify-content-between align-items-center mb-4">
+                    <span class="text-white fw-bold">Insurance Contribution</span>
+                    <span class="text-info fw-bold fs-5" id="sumIns">$0.00</span>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <select class="form-select w-75 fw-bold" id="providerSelect" onchange="fetchDailyCumulative()">
+                        <option value="">Select Provider...</option>
+                        {% for prov in providers %}
+                        <option value="{{ prov.id }}">{{ prov.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <button class="btn btn-dark border border-secondary text-white w-25"><i class="bi bi-plus-lg"></i></button>
+                </div>
+                <button class="btn btn-primary w-100 mt-2 fw-bold py-2 text-white" style="background-color: #1f6feb;" onclick="saveVisit()"><i class="bi bi-floppy me-2"></i> Save Visit</button>
+            </div>
+
+            <div class="panel-box py-3 border-warning" style="background: rgba(210, 153, 34, 0.1);">
+                <div class="d-flex align-items-center mb-1">
+                    <i class="bi bi-graph-up-arrow text-warning me-2"></i>
+                    <h6 class="text-white m-0 fw-bold">Daily Cumulative</h6>
+                </div>
+                <div class="text-white fw-bold mb-3" id="dailyLabel" style="font-size:0.8rem;">Select a provider...</div>
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="text-white fw-bold">Total Revenue</span>
+                    <span class="text-warning fw-bold fs-4" id="dailyTotal">$0.00</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const allCodes = [
+            {% for c in codes %}
+            { code: "{{ c.code }}", desc: "{{ c.description }}", is_add_on: {{ 'true' if c.is_add_on else 'false' }} },
+            {% endfor %}
+        ];
+
+        const ADD_ON_CODES = ['11103', '11105', '11107', '17003'];
+
+        const GROUPS = {
+            "Biopsies": ["11102","11103","11104","11105","11106","11107"],
+            "Shave Removals": ["11300","11301","11302","11305","11306","11310","11311","11312","11313"],
+            "Excisions - Benign": ["11400","11401","11402","11406","11440","11441"],
+            "Excisions - Malignant": ["11600","11601","11602","11640","11641"],
+            "Destructions - Premalignant": ["17000","17003","17004"],
+            "Destructions - Benign": ["17110","17111"],
+            "I & D": ["10060","10061","10080"],
+            "Nail Procedures": ["11719","11720","11721"],
+            "Injections": ["11900","11901"]
+        };
+
+        let currentPrices = {};
+        let activeSelection = {}; 
+        let globalTotal = 0, globalResp = 0, globalIns = 0;
+
+        function clearCalculator() {
+            document.getElementById('payorSelect').value = '';
+            document.getElementById('codesContainer').style.display = 'none';
+            document.getElementById('pricingErrorAlert').style.display = 'none'; // Hide alert on clear
+            document.getElementById('patientSelect').value = '';
+            loadPatientData(document.getElementById('patientSelect'));
+            activeSelection = {};
+            calculate();
+        }
+
+        async function fetchPrices() {
+            const payor = document.getElementById('payorSelect').value;
+            const locId = document.getElementById('locSelect').value;
+            const container = document.getElementById('codesContainer');
+            const errorAlert = document.getElementById('pricingErrorAlert');
+            
+            if (!payor) {
+                container.style.opacity = '0.5';
+                container.style.pointerEvents = 'none';
+                errorAlert.style.display = 'none';
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/calculator/prices?payer=${encodeURIComponent(payor)}&loc_id=${locId}`);
+                currentPrices = await res.json();
+                
+                if(Object.keys(currentPrices).length === 0) {
+                    // SHOW STYLED INLINE ALERT INSTEAD OF BROWSER POPUP
+                    errorAlert.style.display = 'block';
+                    container.style.display = 'none';
+                    return;
+                }
+
+                // HIDE ALERT AND SHOW CODES
+                errorAlert.style.display = 'none';
+                container.style.display = 'block';
+                container.style.opacity = '1';
+                container.style.pointerEvents = 'auto';
+                
+                activeSelection = {}; 
+                renderCodeLists();
+                syncQuickCodesUI();
+                calculate();
+            } catch(e) { console.error(e); }
+        }
+
+        function renderCodeLists() {
+            const emList = document.getElementById('emList');
+            const cptAccordion = document.getElementById('cptAccordion');
+            
+            emList.innerHTML = '';
+            cptAccordion.innerHTML = '';
+
+            let emHtml = '';
+            allCodes.filter(c => c.code.startsWith('99') && currentPrices[c.code]).forEach(c => {
+                emHtml += createRowHtml(c);
+            });
+            emList.innerHTML = emHtml;
+
+            let accIndex = 0;
+            for (const [groupName, codeList] of Object.entries(GROUPS)) {
+                let groupCodes = allCodes.filter(c => codeList.includes(c.code) && currentPrices[c.code]);
+                if (groupCodes.length === 0) continue;
+
+                let rowsHtml = '';
+                groupCodes.forEach(c => rowsHtml += createRowHtml(c));
+
+                cptAccordion.innerHTML += `
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed text-white" type="button" data-bs-toggle="collapse" data-bs-target="#col-${accIndex}">
+                            ${groupName} <span class="badge bg-dark border border-secondary text-white ms-2" id="badge-${groupName.replace(/[^a-zA-Z0-9]/g, '')}">${groupCodes.length}</span>
+                        </button>
+                    </h2>
+                    <div id="col-${accIndex}" class="accordion-collapse collapse">
+                        <div class="accordion-body">
+                            ${rowsHtml}
+                        </div>
+                    </div>
+                </div>`;
+                accIndex++;
+            }
+        }
+
+        function createRowHtml(c) {
+            const price = currentPrices[c.code] || 0;
+            const isAddon = ADD_ON_CODES.includes(c.code);
+            const badge = c.code.startsWith('99') ? `<span class="badge-em ms-2">E&M</span>` : (isAddon ? `<span class="badge bg-dark border border-secondary text-white ms-2" style="font-size:0.6rem;">Add-on</span>` : '');
+
+            let rightSide = '';
+            if (isAddon) {
+                rightSide = `
+                <div class="d-flex align-items-center">
+                    <div class="qty-wrapper me-4" id="row-wrap-${c.code}">
+                        <button class="qty-btn" onclick="updateQty(event, '${c.code}', -1)"><i class="bi bi-dash"></i></button>
+                        <input type="text" class="qty-input" id="qty-row-${c.code}" value="0">
+                        <button class="qty-btn" onclick="updateQty(event, '${c.code}', 1)"><i class="bi bi-plus"></i></button>
+                    </div>
+                    <span class="text-white fw-bold" style="width: 60px; text-align:right;">$${price.toFixed(2)}</span>
+                </div>`;
+            } else {
+                rightSide = `<span class="text-white fw-bold">$${price.toFixed(2)}</span>`;
+            }
+
+            return `
+            <label class="code-row m-0 w-100" style="cursor: pointer;">
+                <div class="d-flex align-items-center w-75">
+                    ${!isAddon ? `<input class="form-check-input me-3 mt-0" type="checkbox" id="chk-${c.code}" onchange="toggleCheck('${c.code}', this.checked)">` : '<div style="width:34px;"></div>'}
+                    <div>
+                        <div class="text-white fw-bold mb-1">${c.code} ${badge}</div>
+                        <div class="text-white" style="font-size: 0.8rem; line-height:1.2;">${c.desc}</div>
+                    </div>
+                </div>
+                ${rightSide}
+            </label>`;
+        }
+
+        function toggleQuickCode(code) {
+            if (!currentPrices[code]) return;
+            if (activeSelection[code]) delete activeSelection[code];
+            else activeSelection[code] = 1;
+            
+            let chk = document.getElementById(`chk-${code}`);
+            if (chk) chk.checked = !!activeSelection[code];
+
+            syncQuickCodesUI();
+            calculate();
+        }
+
+        function toggleCheck(code, isChecked) {
+            if (isChecked) activeSelection[code] = 1;
+            else delete activeSelection[code];
+            syncQuickCodesUI();
+            calculate();
+        }
+
+        function updateQty(e, code, change) {
+            if(e) { e.preventDefault(); e.stopPropagation(); }
+            if (!currentPrices[code]) return;
+
+            let current = activeSelection[code] || 0;
+            let next = Math.max(0, current + change);
+            
+            if (next > 0) activeSelection[code] = next;
+            else delete activeSelection[code];
+
+            syncQuickCodesUI();
+            calculate();
+        }
+
+        function syncQuickCodesUI() {
+            // Update quick code buttons
+            document.querySelectorAll('.quick-btn').forEach(btn => {
+                let code = btn.id.replace('qc-', '');
+                if (activeSelection[code]) btn.classList.add('active');
+                else btn.classList.remove('active');
+            });
+            
+            // Update quantity inputs and border styles
+            ['17003', '11103'].forEach(code => {
+                let qty = activeSelection[code] || 0;
+                
+                // Quick code wrapper
+                let qcWrap = document.getElementById(`wrap-qc-${code}`);
+                let qcInput = document.getElementById(`qty-qc-${code}`);
+                if (qcWrap) {
+                    if (qty > 0) qcWrap.classList.add('active');
+                    else qcWrap.classList.remove('active');
+                    if (qcInput) qcInput.value = qty;
+                }
+
+                // Row wrapper
+                let rowWrap = document.getElementById(`row-wrap-${code}`);
+                let rowInput = document.getElementById(`qty-row-${code}`);
+                if (rowWrap) {
+                    if (qty > 0) rowWrap.classList.add('active');
+                    else rowWrap.classList.remove('active');
+                    if (rowInput) rowInput.value = qty;
+                }
+            });
+
+            // Update Accordion Dynamic Badges
+            for (const [groupName, codeList] of Object.entries(GROUPS)) {
+                let badgeId = `badge-${groupName.replace(/[^a-zA-Z0-9]/g, '')}`;
+                let badgeEl = document.getElementById(badgeId);
+                if (!badgeEl) continue;
+
+                let groupCodesPresent = allCodes.filter(c => codeList.includes(c.code) && currentPrices[c.code]);
+                let selectedCount = groupCodesPresent.filter(c => activeSelection[c.code]).length;
+
+                if (selectedCount > 0) {
+                    badgeEl.className = 'badge bg-primary ms-2';
+                    badgeEl.innerText = `${selectedCount} selected`;
+                } else {
+                    badgeEl.className = 'badge bg-dark border border-secondary text-white ms-2';
+                    badgeEl.innerText = groupCodesPresent.length;
+                }
+            }
+        }
+
+        function loadPatientData(select) {
+            if(!select.value) {
+                document.getElementById('inputCopay').value = "0.00";
+                document.getElementById('inputCoins').value = "0";
+                document.getElementById('inputDed').value = "0.00";
+                document.getElementById('inputOop').value = "0.00";
+            } else {
+                const opt = select.options[select.selectedIndex];
+                let cp = opt.getAttribute('data-copay').replace(/[^0-9.dD]/g, '');
+                let coins = opt.getAttribute('data-coins').replace(/[^0-9.]/g, '');
+                let ded = opt.getAttribute('data-ded').replace(/[^0-9.]/g, '');
+                let oop = opt.getAttribute('data-oop').replace(/[^0-9.]/g, '');
+
+                document.getElementById('inputCopay').value = cp.toLowerCase() === 'd' ? 'd' : (parseFloat(cp||0).toFixed(2));
+                document.getElementById('inputCoins').value = parseFloat(coins||0);
+                document.getElementById('inputDed').value = parseFloat(ded||0).toFixed(2);
+                document.getElementById('inputOop').value = parseFloat(oop||0).toFixed(2);
+            }
+            calculate();
+        }
+
+        function calculate() {
+            let emTotal = 0, procTotal = 0, addonTotal = 0;
+            let ems = [], procs = [], addons = [];
+            
+            for (const [code, qty] of Object.entries(activeSelection)) {
+                let price = currentPrices[code] || 0;
+                let isEM = code.startsWith('99');
+                let isAddon = ADD_ON_CODES.includes(code);
+
+                if (isEM) ems.push({code, price, finalPrice: price});
+                else if (isAddon) addons.push({code, price, qty, finalPrice: price * qty});
+                else procs.push({code, price, finalPrice: price});
+            }
+
+            procs.sort((a,b) => b.price - a.price);
+            procs.forEach((p, i) => {
+                if (i > 0 && p.price > 0) {
+                    p.finalPrice = p.price * 0.5;
+                    p.isReduced = true;
+                } else {
+                    p.isReduced = false;
+                }
+            });
+
+            const bdContainer = document.getElementById('breakdownContainer');
+            let bdHtml = '';
+            
+            ems.forEach(e => {
+                emTotal += e.finalPrice;
+                bdHtml += `
+                <div class="bd-card">
+                    <div class="d-flex justify-content-between mb-1">
+                        <div class="text-white fw-bold">${e.code} <span class="badge-em ms-1">E&M</span></div>
+                        <div class="text-white fw-bold">$${e.finalPrice.toFixed(2)}</div>
+                    </div>
+                    <div class="text-white" style="font-size: 0.8rem;">E&M - always paid separately, never reduced</div>
+                </div>`;
+            });
+
+            procs.forEach(p => {
+                procTotal += p.finalPrice;
+                if(p.isReduced) {
+                    bdHtml += `
+                    <div class="bd-card">
+                        <div class="d-flex justify-content-between mb-1">
+                            <div class="text-white fw-bold">${p.code} <span class="badge bg-danger ms-1" style="font-size:0.65rem;">-50%</span></div>
+                            <div>
+                                <del class="text-white me-2" style="font-size:0.8rem;">$${p.price.toFixed(2)}</del>
+                                <span class="text-white fw-bold">$${p.finalPrice.toFixed(2)}</span>
+                            </div>
+                        </div>
+                        <div class="text-white" style="font-size: 0.8rem;">MCCR: 50% reduction</div>
+                    </div>`;
+                } else {
+                    bdHtml += `
+                    <div class="bd-card">
+                        <div class="d-flex justify-content-between mb-1">
+                            <div class="text-white fw-bold">${p.code}</div>
+                            <div class="text-white fw-bold">$${p.finalPrice.toFixed(2)}</div>
+                        </div>
+                        <div class="text-white" style="font-size: 0.8rem;">Full payment - highest value procedure</div>
+                    </div>`;
+                }
+            });
+
+            addons.forEach(a => {
+                addonTotal += a.finalPrice;
+                bdHtml += `
+                <div class="bd-card">
+                    <div class="d-flex justify-content-between mb-1">
+                        <div class="text-white fw-bold">${a.code} <span class="badge bg-dark border border-secondary text-white ms-1" style="font-size:0.65rem;">Add-on x${a.qty}</span></div>
+                        <div class="text-white fw-bold">$${a.finalPrice.toFixed(2)}</div>
+                    </div>
+                    <div class="text-white" style="font-size: 0.8rem;">Add-on codes are never reduced</div>
+                </div>`;
+            });
+
+            if (bdHtml === '') bdHtml = 'No codes selected.';
+            bdContainer.innerHTML = bdHtml;
+
+            let grossTotal = emTotal + procTotal + addonTotal;
+
+            // 1. Fetch Inputs safely
+            let rawCopay = document.getElementById('inputCopay').value.trim().toLowerCase();
+            let isCopayD = rawCopay === 'd';
+            let fixedCopay = isCopayD ? 0 : (parseFloat(rawCopay) || 0);
+            
+            let coinsPct = (parseFloat(document.getElementById('inputCoins').value) || 0) / 100.0;
+            let currentDeductible = parseFloat(document.getElementById('inputDed').value) || 0;
+            
+            let patientResp = 0;
+            let appliedCopay = 0;
+            let remainingCost = grossTotal;
+
+            // 2. NEW LOGIC: Waterfall sequence (Copay -> Deductible -> Coinsurance)
+            
+            // A. Apply Fixed Copay First (if applicable and not 'd')
+            if (!isCopayD && remainingCost > 0) {
+                // If patient has a fixed copay (e.g., $10), they pay it regardless of the visit total.
+                // However, they can't pay a copay larger than the visit itself.
+                appliedCopay = Math.min(fixedCopay, remainingCost);
+                patientResp += appliedCopay;
+                remainingCost -= appliedCopay;
+            }
+
+            // B. Apply Deductible to Remaining Cost
+            if (currentDeductible > 0 && remainingCost > 0) {
+                // Patient pays deductible up to the remaining visit cost
+                let appliedDeductible = Math.min(currentDeductible, remainingCost);
+                patientResp += appliedDeductible;
+                remainingCost -= appliedDeductible;
+            }
+
+            // C. Apply Coinsurance to Whatever is Left
+            if (remainingCost > 0 && coinsPct > 0) {
+                // Patient pays their percentage of the remaining cost
+                let coinsOwed = remainingCost * coinsPct;
+                patientResp += coinsOwed;
+                remainingCost -= coinsOwed;
+            }
+
+            // Fallback for "Copay D" Display logic (if it was D, we didn't apply fixedCopay)
+            if (isCopayD) appliedCopay = 0;
+
+            patientResp = Math.min(patientResp, grossTotal);
+            let insContrib = Math.max(0, grossTotal - patientResp);
+
+            globalTotal = grossTotal;
+            globalResp = patientResp;
+            globalIns = insContrib;
+
+            // Update UI Totals
+            document.getElementById('sumTotal').innerText = `$${grossTotal.toFixed(2)}`;
+            document.getElementById('sumCopay').innerText = isCopayD ? 'd (to deductible)' : `$${appliedCopay.toFixed(2)}`;
+            document.getElementById('sumResp').innerText = `$${patientResp.toFixed(2)}`;
+            document.getElementById('sumIns').innerText = `$${insContrib.toFixed(2)}`;
+        }
+
+        async function fetchDailyCumulative() {
+            const providerId = document.getElementById('providerSelect').value;
+            const label = document.getElementById('dailyLabel');
+            const totalSpan = document.getElementById('dailyTotal');
+            
+            if (!providerId) {
+                label.innerText = "Select a provider...";
+                totalSpan.innerText = "$0.00";
+                return;
+            }
+
+            const provName = document.getElementById('providerSelect').options[document.getElementById('providerSelect').selectedIndex].text;
+            label.innerText = `${provName} • Today`;
+
+            try {
+                const res = await fetch(`/api/saved-visits/cumulative/${providerId}`);
+                const data = await res.json();
+                if(data.success) {
+                    totalSpan.innerText = `$${data.total.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                }
+            } catch(e) { console.error(e); }
+        }
+
+        async function saveVisit() {
+            const providerId = document.getElementById('providerSelect').value;
+            const patientId = document.getElementById('patientSelect').value;
+            
+            if (!providerId) {
+                alert("Please select a provider to save this visit to.");
+                return;
+            }
+            if (Object.keys(activeSelection).length === 0) {
+                alert("Please select at least one code to save a visit.");
+                return;
+            }
+
+            const payload = {
+                provider_id: parseInt(providerId),
+                patient_id: patientId ? parseInt(patientId) : null,
+                total_visit: globalTotal,
+                patient_responsibility: globalResp,
+                insurance_contribution: globalIns,
+                items: Object.keys(activeSelection)
+            };
+
+            try {
+                const res = await fetch('/api/saved-visits', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (res.ok) {
+                    const btn = document.querySelector('.btn-primary');
+                    btn.innerHTML = '<i class="bi bi-check-circle me-2"></i>Saved!';
+                    btn.classList.replace('btn-primary', 'btn-success');
+                    
+                    fetchDailyCumulative();
+
+                    setTimeout(() => {
+                        btn.innerHTML = '<i class="bi bi-floppy me-2"></i> Save Visit';
+                        btn.classList.replace('btn-success', 'btn-primary');
+                    }, 2000);
+                }
+            } catch(e) { console.error(e); }
+        }
+    </script>
+</body>
+</html>

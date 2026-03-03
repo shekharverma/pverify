@@ -45,12 +45,11 @@ class Patient(db.Model):
     file_path = db.Column(db.String(255), nullable=True)
     pverify_raw = db.Column(db.Text, nullable=True) 
     gemini_raw = db.Column(db.Text, nullable=True)
-    
+
     plan_type = db.Column(db.String(100))
     first_name = db.Column(db.String(100))
     last_name = db.Column(db.String(100))
     dob = db.Column(db.String(20))
-    
     member_id = db.Column(db.String(50))
     payer_name = db.Column(db.String(200))
     status = db.Column(db.String(50))
@@ -69,12 +68,11 @@ class Patient(db.Model):
     
     in_queue = db.Column(db.Boolean, default=False)
     
-    # --- ENCOUNTER SUBMISSION TRACKING ---
-    encounter_status = db.Column(db.String(50), default="pending") # pending, submitted, reviewed
+    encounter_status = db.Column(db.String(50), default="pending") 
     encounter_total = db.Column(db.Float, default=0.0)
     patient_resp = db.Column(db.Float, default=0.0)
     encounter_items = db.Column(db.Text, nullable=True) 
-    encounter_flag = db.Column(db.String(20), nullable=True) # review, caution
+    encounter_flag = db.Column(db.String(20), nullable=True) 
 
 # ==========================================
 # MEDICAL CODES & PRICING MODELS
@@ -85,7 +83,7 @@ class MedicalCode(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     code = db.Column(db.String(50), unique=True, nullable=False)
     description = db.Column(db.String(255))
-    is_add_on = db.Column(db.Boolean, default=False) # Flags if code avoids 50% discount
+    is_add_on = db.Column(db.Boolean, default=False)
 
 class Pricing(db.Model):
     __tablename__ = 'pricing'
@@ -97,3 +95,21 @@ class Pricing(db.Model):
 
     medical_code = db.relationship('MedicalCode', backref=db.backref('pricing_records', lazy=True))
     location = db.relationship('Location', backref=db.backref('pricing_records', lazy=True))
+
+# ==========================================
+# VISIT CALCULATOR TRACKING (NEW)
+# ==========================================
+class SavedVisit(db.Model):
+    __tablename__ = 'saved_visits'
+    id = db.Column(db.Integer, primary_key=True)
+    provider_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    patient_id = db.Column(db.Integer, db.ForeignKey('patient.id'), nullable=True)
+    visit_date = db.Column(db.String(20), nullable=False)
+    total_visit = db.Column(db.Float, default=0.0)
+    patient_responsibility = db.Column(db.Float, default=0.0)
+    insurance_contribution = db.Column(db.Float, default=0.0)
+    codes_json = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+
+    provider = db.relationship('User', backref=db.backref('saved_visits', lazy=True))
+    patient = db.relationship('Patient', backref=db.backref('saved_visits', lazy=True))

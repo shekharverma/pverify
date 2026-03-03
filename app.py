@@ -381,12 +381,21 @@ def checkout():
 @app.route('/api/checkout/complete/<int:patient_id>', methods=['POST'])
 def complete_checkout(patient_id):
     if not session.get('role'): return jsonify({"error": "Unauthorized"}), 403
+    
+    # Grab the JSON data coming from the Modal
+    data = request.json or {}
+    
     p = Patient.query.get(patient_id)
     if p:
         p.encounter_status = 'paid'
         p.in_queue = False # Remove from active flows entirely
+        
+        # NOTE: If you add a `payment_data` column to your DB later, 
+        # you can save it like this: p.payment_data = json.dumps(data)
+        
         db.session.commit()
         return jsonify({"success": True})
+    
     return jsonify({"success": False})
 
 @app.route('/api/codes', methods=['POST'])
@@ -538,35 +547,30 @@ def calculate_visit():
     except:
         fixed_copay = 0.0
 
-    # 3. Calculate Patient Responsibility using Client Logic
+    # 3. NEW LOGIC: Waterfall Calculation (Copay -> Deductible -> Coinsurance)
     patient_resp = 0.0
-    current_deductible = ded_rem
+    remaining_cost = total_visit_cost
+    
+    # A. Apply Fixed Copay First (if applicable)
+    if not is_copay_d and remaining_cost > 0:
+        applied_copay = min(fixed_copay, remaining_cost)
+        patient_resp += applied_copay
+        remaining_cost -= applied_copay
 
-    for item in em_codes:
-        if is_copay_d:
-            if current_deductible > 0:
-                applied = min(item["final_price"], current_deductible)
-                patient_resp += applied
-                current_deductible -= applied
-                remaining_cost = item["final_price"] - applied
-                if remaining_cost > 0:
-                    patient_resp += (remaining_cost * coins_pct)
-            else:
-                 patient_resp += (item["final_price"] * coins_pct)
-        else:
-            patient_resp += fixed_copay
+    # B. Apply Deductible to whatever is left
+    if ded_rem > 0 and remaining_cost > 0:
+        applied_deductible = min(ded_rem, remaining_cost)
+        patient_resp += applied_deductible
+        remaining_cost -= applied_deductible
+        
+    # C. Apply Coinsurance to the remainder
+    if remaining_cost > 0 and coins_pct > 0:
+        coins_owed = remaining_cost * coins_pct
+        patient_resp += coins_owed
+        remaining_cost -= coins_owed
 
-    all_procs = primary_procedures + addon_procedures
-    for item in all_procs:
-        if current_deductible > 0:
-            applied = min(item["final_price"], current_deductible)
-            patient_resp += applied
-            current_deductible -= applied
-            remaining_cost = item["final_price"] - applied
-            if remaining_cost > 0:
-                patient_resp += (remaining_cost * coins_pct)
-        else:
-            patient_resp += (item["final_price"] * coins_pct)
+    # Ensure patient doesn't pay more than the visit
+    patient_resp = min(patient_resp, total_visit_cost)
 
     return jsonify({
         "success": True, 
@@ -574,5 +578,103 @@ def calculate_visit():
         "total_cost": total_visit_cost,
         "patient_resp": round(patient_resp, 2)
     })
+# @app.route('/visit-calculator')
+# def visit_calculator():
+#     if not session.get('role'): return redirect(url_for('index'))
+    
+#     current_user = User.query.get(session['user_id'])
+#     available_locs = Location.query.all() if session.get('role') == 'admin' else current_user.locations
+    
+#     # We pass all active codes, patients, and payors to the frontend
+#     codes = MedicalCode.query.all()
+#     patients = Patient.query.order_by(Patient.first_name.asc()).all()
+    
+#     # Extract unique payor IDs from the Pricing table so the dropdown only shows payors with actual prices
+#     active_payor_ids = db.session.query(Pricing.payer_id).distinct().all()
+#     active_payors = [p[0] for p in active_payor_ids]
+    
+#     return render_template(
+#         "visit_calculator.html", 
+#         codes=codes, 
+#         patients=patients, 
+#         payors=active_payors,
+#         current_user=current_user,
+#         available_locations=available_locs
+#     )
+
+# @app.route('/api/calculator/prices')
+# def api_calculator_prices():
+#     if not session.get('role'): return jsonify({"error": "Unauthorized"}), 403
+    
+#     payer = request.args.get('payer')
+#     loc_id = request.args.get('loc_id')
+    
+#     if not payer or not loc_id:
+#         return jsonify({})
+        
+#     prices = Pricing.query.filter_by(payer_id=payer, location_id=loc_id).all()
+    
+#     # Return a dictionary of { "11301": 118.00, "99213": 127.00 }
+#     price_map = {p.medical_code.code: p.price for p in prices}
+#     return jsonify(price_map)
+
+
+from models import SavedVisit
+
+@app.route('/visit-calculator')
+def visit_calculator():
+    if not session.get('role'): return redirect(url_for('index'))
+    role = session.get('role')
+    perms = session.get('permissions') or ""
+    if role != 'admin' and 'calculator' not in perms: return redirect(url_for('index')) 
+    
+    current_user = User.query.get(session['user_id'])
+    available_locs = Location.query.all() if role == 'admin' else current_user.locations
+    codes = MedicalCode.query.all()
+    patients = Patient.query.order_by(Patient.first_name.asc()).all()
+    
+    # Fetch Providers for the "Save Visit" dropdown
+    providers = User.query.filter_by(role='provider').all()
+    
+    active_payor_ids = db.session.query(Pricing.payer_id).distinct().all()
+    active_payors = [p[0] for p in active_payor_ids]
+    
+    return render_template("visit_calculator.html", codes=codes, patients=patients, payors=active_payors, current_user=current_user, available_locations=available_locs, providers=providers)
+
+@app.route('/api/calculator/prices')
+def api_calculator_prices():
+    if not session.get('role'): return jsonify({"error": "Unauthorized"}), 403
+    payer = request.args.get('payer')
+    loc_id = request.args.get('loc_id')
+    if not payer or not loc_id: return jsonify({})
+    prices = Pricing.query.filter_by(payer_id=payer, location_id=loc_id).all()
+    price_map = {p.medical_code.code: p.price for p in prices}
+    return jsonify(price_map)
+
+@app.route('/api/saved-visits', methods=['POST'])
+def save_calculator_visit():
+    if not session.get('role'): return jsonify({"error": "Unauthorized"}), 403
+    data = request.json
+    
+    new_visit = SavedVisit(
+        provider_id=data.get('provider_id'),
+        patient_id=data.get('patient_id') or None,
+        visit_date=datetime.now().strftime("%Y-%m-%d"),
+        total_visit=data.get('total_visit', 0.0),
+        patient_responsibility=data.get('patient_responsibility', 0.0),
+        insurance_contribution=data.get('insurance_contribution', 0.0),
+        codes_json=json.dumps(data.get('items', []))
+    )
+    db.session.add(new_visit)
+    db.session.commit()
+    return jsonify({"success": True})
+
+@app.route('/api/saved-visits/cumulative/<int:provider_id>')
+def get_daily_cumulative(provider_id):
+    if not session.get('role'): return jsonify({"error": "Unauthorized"}), 403
+    today = datetime.now().strftime("%Y-%m-%d")
+    visits = SavedVisit.query.filter_by(provider_id=provider_id, visit_date=today).all()
+    total_rev = sum(v.total_visit for v in visits)
+    return jsonify({"success": True, "total": total_rev, "date": today})
 
 if __name__ == "__main__": app.run(host="0.0.0.0", port=8081)
