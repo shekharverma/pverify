@@ -86,12 +86,10 @@ def perform_verification(payer_code, member_id, first, last, dob):
             p_type, p_name = plan_summary.get("PolicyType") or "", (plan_summary.get("PlanName") or "").upper()
             display_plan = "Plan G" if "PLAN G" in p_name else "Plan N" if "PLAN N" in p_name else f"MA {p_type}".strip() if "MEDICARE ADVANTAGE" in p_name else p_type
             
-            # --- FIX: Stop generic PVerify Medicare text from showing up as a plan badge ---
             if display_plan:
                 dp_lower = display_plan.lower()
                 if "medicare part a" in dp_lower or "medicare part b" in dp_lower or dp_lower == "medicare":
                     display_plan = ""
-            # ------------------------------------------------------------------------------
             
             copay, coins = "$0.00", "0%"
             for service in api_data.get("ServiceDetails") or []:
@@ -173,7 +171,7 @@ def upload_single():
         path = os.path.join(app.config['UPLOAD_FOLDER'], unique_name); f.save(path)
         res = process_single_file(path, app, filename=unique_name)
         p = db.session.get(Patient, res["id"])
-        return jsonify({"success":True, "patient": {"id": p.id, "first_name": p.first_name, "last_name": p.last_name, "dob": p.dob, "payer_name": p.payer_name, "sec_payer_name": p.sec_payer_name, "plan_type": p.plan_type, "status": p.status, "copay": p.copay, "coins": p.coins, "deductible_rem": p.deductible_rem, "oop_rem": p.oop_rem, "pverify_raw": res.get("pverify_raw"), "gemini_raw": res.get("gemini_raw"), "filename": unique_name, "status_flag": p.status, "in_queue": p.in_queue}})
+        return jsonify({"success":True, "patient": {"id": p.id, "first_name": p.first_name, "last_name": p.last_name, "dob": p.dob, "member_id": p.member_id, "payer_name": p.payer_name, "sec_payer_name": p.sec_payer_name, "plan_type": p.plan_type, "status": p.status, "copay": p.copay, "coins": p.coins, "deductible_rem": p.deductible_rem, "oop_rem": p.oop_rem, "pverify_raw": res.get("pverify_raw"), "gemini_raw": res.get("gemini_raw"), "filename": unique_name, "status_flag": p.status, "in_queue": p.in_queue}})
     return jsonify({"success": False, "error": "No file"})
 
 @app.route('/batch-upload', methods=['POST'])

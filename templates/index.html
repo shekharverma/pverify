@@ -184,7 +184,7 @@
 
         <div class="custom-card p-0" style="overflow: hidden;">
             <div class="p-3 border-bottom border-secondary d-flex text-white small fw-bold text-uppercase" style="background: rgba(255,255,255,0.02);">
-                <div class="col-patient ps-2">Patient Name</div>
+                <div class="col-patient ps-2">Patient Name / ID</div>
                 <div class="col-dob">DOB</div>
                 <div class="col-payer">Insurance Payer</div>
                 <div class="col-fin">Copay</div>
@@ -199,7 +199,10 @@
                 <div class="patient-row">
                     <div class="col-patient ps-2">
                         <div class="avatar">{{ p.first_name[0] }}{{ p.last_name[0] }}</div>
-                        <span class="text-white fw-bold">{{ p.first_name }} {{ p.last_name }}</span>
+                        <div class="d-flex flex-column">
+                            <span class="text-white fw-bold">{{ p.first_name }} {{ p.last_name }}</span>
+                            <span class="text-muted fw-normal" style="font-size: 0.75rem;">ID: {{ p.member_id or 'N/A' }}</span>
+                        </div>
                     </div>
                     <div class="col-dob text-white">{{ p.dob }}</div>
                     <div class="col-payer text-white" title="{{ p.payer_name }}">
@@ -522,7 +525,6 @@
                         ? `<button class="btn btn-sm btn-outline-secondary border-0 text-white" disabled title="In Queue"><i class="bi bi-person-check-fill fs-5"></i></button>`
                         : `<button class="btn btn-sm btn-outline-success border-0 text-success" onclick="addToQueue(${p.id})" title="Add to Encounter Queue"><i class="bi bi-person-plus-fill fs-5"></i></button>`;
     
-                    // UPDATE: Logic for Blue vs Red badges in JS upload
                     let planBadgeHtml = '';
                     if (p.payer_name && p.payer_name.toLowerCase().includes('medicare')) {
                         if (p.plan_type) {
@@ -538,7 +540,10 @@
                     <div class="patient-row animate-row">
                         <div class="col-patient ps-2">
                             <div class="avatar">${p.first_name ? p.first_name[0] : '?'}${p.last_name ? p.last_name[0] : '?'}</div>
-                            <span class="text-white fw-bold">${p.first_name} ${p.last_name}</span>
+                            <div class="d-flex flex-column">
+                                <span class="text-white fw-bold">${p.first_name} ${p.last_name}</span>
+                                <span class="text-muted fw-normal" style="font-size: 0.75rem;">ID: ${p.member_id || 'N/A'}</span>
+                            </div>
                         </div>
                         <div class="col-dob text-white">${p.dob || ''}</div>
                         <div class="col-payer text-white">
