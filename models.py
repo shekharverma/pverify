@@ -44,6 +44,7 @@ class Patient(db.Model):
     
     file_path = db.Column(db.String(255), nullable=True)
     pverify_raw = db.Column(db.Text, nullable=True) 
+    sec_pverify_raw = db.Column(db.Text, nullable=True) # NEW: Store Secondary JSON
     gemini_raw = db.Column(db.Text, nullable=True)
 
     plan_type = db.Column(db.String(100))

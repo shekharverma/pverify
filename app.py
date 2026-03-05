@@ -17,7 +17,7 @@ from models import db, User, PayerMapping, Patient, Location, MedicalCode, Prici
 from flask_migrate import Migrate
 from sqlalchemy import func
 
-ENABLE_MEDICARE_SECONDARY_CHECK = False
+ENABLE_MEDICARE_SECONDARY_CHECK = True
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', handlers=[logging.StreamHandler(sys.stdout)])
 logger = logging.getLogger("MedBillApp")
@@ -35,6 +35,7 @@ os.makedirs('uploads', exist_ok=True)
 
 KNOWN_ADD_ON_CODES = {'11103', '11105', '11107', '17003'}
 
+# CLEANED URLS: No markdown brackets
 PVERIFY_CLIENT_ID = os.environ.get('PVERIFY_OAUTH_CLIENT_ID')
 PVERIFY_CLIENT_SECRET = os.environ.get('PVERIFY_OAUTH_CLIENT_SECRET')
 PVERIFY_API_CLIENT_ID = os.environ.get('PVERIFY_API_CLIENT_ID')
@@ -84,11 +85,15 @@ def perform_verification(payer_code, member_id, first, last, dob):
             
             plan_summary = api_data.get("PlanCoverageSummary") or {}
             p_type, p_name = plan_summary.get("PolicyType") or "", (plan_summary.get("PlanName") or "").upper()
+            p_status = plan_summary.get("Status") or "Unknown"
+            raw_plan_name = plan_summary.get("PlanName") or p_type
+            
             display_plan = "Plan G" if "PLAN G" in p_name else "Plan N" if "PLAN N" in p_name else f"MA {p_type}".strip() if "MEDICARE ADVANTAGE" in p_name else p_type
             
+            # Stricter filter to prevent "Medicare Part A" from showing up as a plan
             if display_plan:
                 dp_lower = display_plan.lower()
-                if "medicare part a" in dp_lower or "medicare part b" in dp_lower or dp_lower == "medicare":
+                if "part a" in dp_lower or "part b" in dp_lower or dp_lower == "medicare":
                     display_plan = ""
             
             copay, coins = "$0.00", "0%"
@@ -100,7 +105,7 @@ def perform_verification(payer_code, member_id, first, last, dob):
             oop_summary = api_data.get("HBPC_Deductible_OOP_Summary") or {}
             ded_rem = (oop_summary.get("IndividualDeductibleRemainingInNet") or {}).get("Value") or "$0.00"
             oop_rem = (oop_summary.get("IndividualOOPRemainingInNet") or {}).get("Value") or "$0.00"
-            return {"success": True, "payer_name": api_data.get("PayerName"), "plan_type": display_plan, "benefits": {"copay": copay, "coins": coins, "deductible": ded_rem, "oop": oop_rem}, "raw_response": api_data}
+            return {"success": True, "payer_name": api_data.get("PayerName"), "plan_type": display_plan, "plan_status": p_status, "raw_plan_name": raw_plan_name, "benefits": {"copay": copay, "coins": coins, "deductible": ded_rem, "oop": oop_rem}, "raw_response": api_data}
         return {"success": False, "error": f"API Error {response.status_code}"}
     except Exception as e: return {"success": False, "error": str(e)}
 
@@ -111,8 +116,6 @@ def process_single_file(filepath, app_context_app, filename=None):
             root = extraction.get("form_population_data", {})
             p_data, s_data = root.get("primary", {}), root.get("secondary", {})
             
-            ai_plan_type = root.get("plan_type", "")
-            
             patient = Patient(
                 first_name=root.get("first_name"), 
                 last_name=root.get("last_name"), 
@@ -121,7 +124,7 @@ def process_single_file(filepath, app_context_app, filename=None):
                 payer_name=p_data.get("payer_name"), 
                 sec_member_id=s_data.get("member_id"), 
                 sec_payer_name=s_data.get("payer_name"),
-                plan_type=ai_plan_type 
+                plan_type="" # Always starts empty
             )
             
             if filename: patient.file_path = filename
@@ -129,35 +132,57 @@ def process_single_file(filepath, app_context_app, filename=None):
             
             p_code = get_payer_code_by_name(patient.payer_name)
             raw_json = {}
+            sec_raw_json = {}
+            
+            # 1. Primary Check
             if p_code:
                 res = perform_verification(p_code, patient.member_id, patient.first_name, patient.last_name, patient.dob)
                 if res["success"]:
                     patient.status = "verified"
-                    if not patient.plan_type:
-                        patient.plan_type = res["plan_type"]
-                        
+                    patient.plan_type = res["plan_type"]
                     patient.copay, patient.coins = res["benefits"]["copay"], res["benefits"]["coins"]
                     patient.deductible_rem, patient.oop_rem = res["benefits"]["deductible"], res["benefits"]["oop"]
                     raw_json = res.get("raw_response")
                 else: patient.status, raw_json = "error", res.get("raw_response")
             else: patient.status = "mapping_needed"
             
-            if ENABLE_MEDICARE_SECONDARY_CHECK and "medicare" in (patient.payer_name or "").lower() and patient.sec_member_id:
-                s_code = get_payer_code_by_name(patient.sec_payer_name)
-                if s_code:
-                    res_s = perform_verification(s_code, patient.sec_member_id, patient.first_name, patient.last_name, patient.dob)
-                    if res_s["success"]:
-                        if not patient.plan_type and res_s["plan_type"]: 
-                            patient.plan_type = res_s['plan_type']
-                        patient.copay, patient.coins = res_s["benefits"]["copay"], res_s["benefits"]["coins"]
-                        patient.deductible_rem, patient.oop_rem = res_s["benefits"]["deductible"], res_s["benefits"]["oop"]
-                        raw_json = res_s.get("raw_response")
+            # 2. Secondary Check Logic
+            if ENABLE_MEDICARE_SECONDARY_CHECK and "medicare" in (patient.payer_name or "").lower():
+                if patient.sec_member_id:
+                    s_code = get_payer_code_by_name(patient.sec_payer_name)
+                    if s_code:
+                        res_s = perform_verification(s_code, patient.sec_member_id, patient.first_name, patient.last_name, patient.dob)
+                        if res_s["success"]:
+                            # Pick full plan name and actual status tag from secondary Pverify ONLY
+                            patient.plan_type = res_s.get('raw_plan_name') or res_s.get('plan_type')
+                            patient.sec_status = res_s.get('plan_status', 'Active')
+                            
+                            # Update SEC financials, do NOT overwrite the primary financials
+                            patient.sec_copay, patient.sec_coins = res_s["benefits"]["copay"], res_s["benefits"]["coins"]
+                            patient.sec_deductible_rem, patient.sec_oop_rem = res_s["benefits"]["deductible"], res_s["benefits"]["oop"]
+                            
+                            sec_raw_json = res_s.get("raw_response")
+                        else:
+                            patient.sec_status = "Error"
+                            sec_raw_json = res_s.get("raw_response") or {"error": "Secondary verification failed"}
+                    else:
+                        patient.sec_status = "Mapping Needed"
+                        sec_raw_json = {"message": "Secondary payer mapping needed"}
+                else:
+                    patient.sec_status = "None"
+                    sec_raw_json = {"message": "no supplemental data for this patient"}
+            else:
+                patient.sec_status = "N/A"
+                sec_raw_json = {"message": "Not a Medicare patient. Secondary check skipped."}
             
+            # Save Raw JSONs to DB
             if raw_json:
                 patient.pverify_raw = json.dumps(raw_json)
+            if sec_raw_json:
+                patient.sec_pverify_raw = json.dumps(sec_raw_json)
 
             db.session.add(patient); db.session.commit()
-            return {"id": patient.id, "pverify_raw": raw_json, "gemini_raw": extraction, "filename": filename}
+            return {"id": patient.id, "pverify_raw": raw_json, "sec_pverify_raw": sec_raw_json, "gemini_raw": extraction, "filename": filename}
         finally: pass
 
 @app.route('/uploads/<path:filename>')
@@ -171,7 +196,7 @@ def upload_single():
         path = os.path.join(app.config['UPLOAD_FOLDER'], unique_name); f.save(path)
         res = process_single_file(path, app, filename=unique_name)
         p = db.session.get(Patient, res["id"])
-        return jsonify({"success":True, "patient": {"id": p.id, "first_name": p.first_name, "last_name": p.last_name, "dob": p.dob, "member_id": p.member_id, "payer_name": p.payer_name, "sec_payer_name": p.sec_payer_name, "plan_type": p.plan_type, "status": p.status, "copay": p.copay, "coins": p.coins, "deductible_rem": p.deductible_rem, "oop_rem": p.oop_rem, "pverify_raw": res.get("pverify_raw"), "gemini_raw": res.get("gemini_raw"), "filename": unique_name, "status_flag": p.status, "in_queue": p.in_queue}})
+        return jsonify({"success":True, "patient": {"id": p.id, "first_name": p.first_name, "last_name": p.last_name, "dob": p.dob, "member_id": p.member_id, "payer_name": p.payer_name, "sec_payer_name": p.sec_payer_name, "sec_status": p.sec_status, "plan_type": p.plan_type, "status": p.status, "copay": p.copay, "coins": p.coins, "deductible_rem": p.deductible_rem, "oop_rem": p.oop_rem, "pverify_raw": res.get("pverify_raw"), "sec_pverify_raw": res.get("sec_pverify_raw"), "gemini_raw": res.get("gemini_raw"), "filename": unique_name, "status_flag": p.status, "in_queue": p.in_queue}})
     return jsonify({"success": False, "error": "No file"})
 
 @app.route('/batch-upload', methods=['POST'])
@@ -634,8 +659,6 @@ def calculate_visit():
         "patient_resp": round(patient_resp, 2)
     })
 
-from models import SavedVisit
-
 @app.route('/visit-calculator')
 def visit_calculator():
     if not session.get('role'): return redirect(url_for('index'))
@@ -692,4 +715,4 @@ def get_daily_cumulative(provider_id):
     total_rev = sum(v.total_visit for v in visits)
     return jsonify({"success": True, "total": total_rev, "date": today})
 
-if __name__ == "__main__": app.run(host="0.0.0.0", port=8081)
+if __name__ == "__main__": app.run(host="0.0.0.0", port=8082)

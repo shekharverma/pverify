@@ -184,7 +184,7 @@
 
         <div class="custom-card p-0" style="overflow: hidden;">
             <div class="p-3 border-bottom border-secondary d-flex text-white small fw-bold text-uppercase" style="background: rgba(255,255,255,0.02);">
-                <div class="col-patient ps-2">Patient Name / ID</div>
+                <div class="col-patient ps-2">Patient Name</div>
                 <div class="col-dob">DOB</div>
                 <div class="col-payer">Insurance Payer</div>
                 <div class="col-fin">Copay</div>
@@ -199,22 +199,30 @@
                 <div class="patient-row">
                     <div class="col-patient ps-2">
                         <div class="avatar">{{ p.first_name[0] }}{{ p.last_name[0] }}</div>
-                        <div class="d-flex flex-column">
-                            <span class="text-white fw-bold">{{ p.first_name }} {{ p.last_name }}</span>
-                            <span class="text-muted fw-normal" style="font-size: 0.75rem;">ID: {{ p.member_id or 'N/A' }}</span>
+                        <div>
+                            <div class="text-white fw-bold" style="line-height: 1.2;">{{ p.first_name }} {{ p.last_name }}</div>
+                            {% if p.member_id %}
+                                <div class="text-muted" style="font-size: 0.75rem;">ID: {{ p.member_id }}</div>
+                            {% endif %}
                         </div>
                     </div>
                     <div class="col-dob text-white">{{ p.dob }}</div>
+                    
                     <div class="col-payer text-white" title="{{ p.payer_name }}">
-                        <span class="text-truncate d-inline-block" style="max-width: 140px;">{{ p.payer_name }}</span>
+                        <span class="text-truncate d-inline-block" style="max-width: 140px; vertical-align: middle;">{{ p.payer_name }}</span>
+                        
                         {% if p.payer_name and 'medicare' in p.payer_name|lower %}
                             {% if p.plan_type %}
                                 {% if 'plan' in p.plan_type|lower %}
-                                    <span class="badge rounded-pill text-white ms-2" style="font-size: 0.65rem; padding: 4px 8px; background-color: #8b1a1a !important; opacity: 0.9;">{{ p.plan_type }}</span>
+                                    <span class="badge rounded-pill text-white ms-1" style="font-size: 0.65rem; padding: 4px 8px; background-color: #8b1a1a !important; opacity: 0.9; vertical-align: middle;">{{ p.plan_type }}</span>
                                 {% else %}
-                                    <span class="badge rounded-pill text-white ms-2" style="font-size: 0.65rem; padding: 4px 8px; background-color: #1f6feb !important; opacity: 0.9;">{{ p.plan_type }}</span>
+                                    <span class="badge rounded-pill text-white ms-1" style="font-size: 0.65rem; padding: 4px 8px; background-color: #1f6feb !important; opacity: 0.9; vertical-align: middle;">{{ p.plan_type }}</span>
                                 {% endif %}
                             {% endif %}
+                            
+                            <!-- {% if p.sec_status == 'None' %}
+                                <div class="text-muted mt-1" style="font-size: 0.7rem; font-style: italic; line-height: 1;">no supplemental data for this patient</div>
+                            {% endif %} -->
                         {% endif %}
                     </div>
                     
@@ -244,8 +252,14 @@
                         {% endif %}
                         
                         {% if p.pverify_raw %}
-                        <button class="btn btn-sm btn-outline-info border-0 text-info" onclick="viewRawJson({{ p.id }})" title="View PVerify Data">
-                            <i class="bi bi-filetype-json"></i>
+                        <button class="btn btn-sm btn-outline-info border-0 text-info" onclick="viewRawJson({{ p.id }}, 'primary')" title="View Primary PVerify Data">
+                            <i class="bi bi-1-square"></i>
+                        </button>
+                        {% endif %}
+
+                        {% if p.sec_pverify_raw %}
+                        <button class="btn btn-sm btn-outline-danger border-0 text-danger" onclick="viewRawJson({{ p.id }}, 'secondary')" title="View Secondary PVerify Data">
+                            <i class="bi bi-2-square"></i>
                         </button>
                         {% endif %}
 
@@ -254,8 +268,17 @@
                                 <i class="bi bi-link-45deg"></i> Map
                             </button>
                         {% else %}
-                            <button class="btn btn-sm btn-primary-custom text-white py-1 px-2" style="font-size: 0.8rem;">Active</button>
+                            {% set display_status = 'Active' %}
+                            {% if p.payer_name and 'medicare' in p.payer_name|lower %}
+                                {% if p.sec_status and p.sec_status not in ['None', 'Error', 'Mapping Needed', 'N/A'] %}
+                                    {% set display_status = p.sec_status %}
+                                {% elif p.sec_status in ['Error', 'Mapping Needed'] %}
+                                    {% set display_status = 'Check Sec.' %}
+                                {% endif %}
+                            {% endif %}
+                            <button class="btn btn-sm btn-primary-custom text-white py-1 px-2" style="font-size: 0.8rem; text-transform: capitalize;">{{ display_status }}</button>
                         {% endif %}
+                        
                         <button class="btn btn-sm text-danger opacity-75 hover-opacity-100" onclick="confirmAction({{ p.id }})" title="Delete Record">
                             <i class="bi bi-trash-fill fs-5"></i>
                         </button>
@@ -441,11 +464,13 @@
 
 <script>
     window.rawPatientData = {};  
+    window.secRawPatientData = {};
     window.geminiData = {};  
     
     {% if session.get('role') %}
         {% for p in patients %}
             {% if p.pverify_raw %} window.rawPatientData[{{ p.id }}] = {{ p.pverify_raw | safe }}; {% endif %}
+            {% if p.sec_pverify_raw %} window.secRawPatientData[{{ p.id }}] = {{ p.sec_pverify_raw | safe }}; {% endif %}
             {% if p.gemini_raw %} window.geminiData[{{ p.id }}] = {{ p.gemini_raw | safe }}; {% endif %}
         {% endfor %}
     {% endif %}
@@ -476,9 +501,9 @@
         setTimeout(() => { document.getElementById(id)?.remove(); }, 3000);
     }
 
-    function viewRawJson(id) {
-        const data = window.rawPatientData[id];
-        document.querySelector('#rawJsonModal .modal-title').innerText = "PVerify Raw Response";
+    function viewRawJson(id, type='primary') {
+        const data = type === 'primary' ? window.rawPatientData[id] : window.secRawPatientData[id];
+        document.querySelector('#rawJsonModal .modal-title').innerText = type === 'primary' ? "Primary PVerify Response" : "Secondary PVerify Response";
         document.getElementById('jsonOutput').textContent = data ? JSON.stringify(data, null, 2) : "// No Data";
         new bootstrap.Modal(document.getElementById('rawJsonModal')).show();
     }
@@ -515,39 +540,48 @@
                 if (data.success && data.patient) {
                     const p = data.patient;
                     window.rawPatientData[p.id] = p.pverify_raw;
+                    window.secRawPatientData[p.id] = p.sec_pverify_raw;
                     window.geminiData[p.id] = p.gemini_raw;
                     
+                    let displayStatus = 'Active';
+                    let planBadgeHtml = '';
+                    
+                    if (p.payer_name && p.payer_name.toLowerCase().includes('medicare')) {
+                        if (p.plan_type) {
+                            if (p.plan_type.toLowerCase().includes('plan')) {
+                                planBadgeHtml += `<span class="badge rounded-pill text-white ms-1" style="font-size: 0.65rem; padding: 4px 8px; background-color: #8b1a1a !important; vertical-align: middle;">${p.plan_type}</span>`;
+                            } else {
+                                planBadgeHtml += `<span class="badge rounded-pill text-white ms-1" style="font-size: 0.65rem; padding: 4px 8px; background-color: #1f6feb !important; vertical-align: middle;">${p.plan_type}</span>`;
+                            }
+                        }
+                        
+                        if (p.sec_status && !['None', 'Error', 'Mapping Needed', 'N/A'].includes(p.sec_status)) {
+                            displayStatus = p.sec_status;
+                        } else if (['Error', 'Mapping Needed'].includes(p.sec_status)) {
+                            displayStatus = 'Check Sec.';
+                        }
+                    }
+
                     let actionBtn = p.status_flag === 'mapping_needed' 
                         ? `<button class="btn btn-sm btn-outline-warning d-flex align-items-center gap-1 text-warning" onclick="openMappingModal('${p.payer_name}')"><i class="bi bi-link-45deg"></i> Map</button>`
-                        : `<button class="btn btn-sm btn-primary-custom py-1 px-2 text-white" style="font-size: 0.8rem;">Active</button>`;
+                        : `<button class="btn btn-sm btn-primary-custom py-1 px-2 text-white" style="font-size: 0.8rem; text-transform: capitalize;">${displayStatus}</button>`;
 
                     let queueBtn = p.in_queue 
                         ? `<button class="btn btn-sm btn-outline-secondary border-0 text-white" disabled title="In Queue"><i class="bi bi-person-check-fill fs-5"></i></button>`
                         : `<button class="btn btn-sm btn-outline-success border-0 text-success" onclick="addToQueue(${p.id})" title="Add to Encounter Queue"><i class="bi bi-person-plus-fill fs-5"></i></button>`;
     
-                    let planBadgeHtml = '';
-                    if (p.payer_name && p.payer_name.toLowerCase().includes('medicare')) {
-                        if (p.plan_type) {
-                            if (p.plan_type.toLowerCase().includes('plan')) {
-                                planBadgeHtml = `<span class="badge rounded-pill text-white ms-2" style="font-size: 0.65rem; padding: 4px 8px; background-color: #8b1a1a !important;">${p.plan_type}</span>`;
-                            } else {
-                                planBadgeHtml = `<span class="badge rounded-pill text-white ms-2" style="font-size: 0.65rem; padding: 4px 8px; background-color: #1f6feb !important;">${p.plan_type}</span>`;
-                            }
-                        }
-                    }
-
                     const rowHtml = `
                     <div class="patient-row animate-row">
                         <div class="col-patient ps-2">
                             <div class="avatar">${p.first_name ? p.first_name[0] : '?'}${p.last_name ? p.last_name[0] : '?'}</div>
-                            <div class="d-flex flex-column">
-                                <span class="text-white fw-bold">${p.first_name} ${p.last_name}</span>
-                                <span class="text-muted fw-normal" style="font-size: 0.75rem;">ID: ${p.member_id || 'N/A'}</span>
+                            <div>
+                                <div class="text-white fw-bold" style="line-height: 1.2;">${p.first_name} ${p.last_name}</div>
+                                ${p.member_id ? `<div class="text-muted" style="font-size: 0.75rem;">ID: ${p.member_id}</div>` : ''}
                             </div>
                         </div>
                         <div class="col-dob text-white">${p.dob || ''}</div>
-                        <div class="col-payer text-white">
-                            <span class="text-truncate d-inline-block" style="max-width: 140px;">${p.payer_name}</span>
+                        <div class="col-payer text-white" title="${p.payer_name}">
+                            <span class="text-truncate d-inline-block" style="max-width: 140px; vertical-align: middle;">${p.payer_name}</span>
                             ${planBadgeHtml}
                         </div>
                         <div class="col-fin text-white" style="color: #3fb950 !important; font-weight: 700;">${p.copay}</div>
@@ -569,13 +603,18 @@
                             </button>` : ''}
                             
                             ${p.pverify_raw ? `
-                            <button class="btn btn-sm btn-outline-info border-0 text-info" onclick="viewRawJson(${p.id})" title="View PVerify Data">
-                                <i class="bi bi-filetype-json"></i>
+                            <button class="btn btn-sm btn-outline-info border-0 text-info" onclick="viewRawJson(${p.id}, 'primary')" title="View Primary PVerify Data">
+                                <i class="bi bi-1-square"></i>
+                            </button>` : ''}
+                            
+                            ${p.sec_pverify_raw ? `
+                            <button class="btn btn-sm btn-outline-danger border-0 text-danger" onclick="viewRawJson(${p.id}, 'secondary')" title="View Secondary PVerify Data">
+                                <i class="bi bi-2-square"></i>
                             </button>` : ''}
 
                             ${actionBtn}
-                            <button class="btn btn-sm text-danger opacity-75" onclick="confirmAction(${p.id})">
-                                <i class="bi bi-trash-fill"></i>
+                            <button class="btn btn-sm text-danger opacity-75 hover-opacity-100" onclick="confirmAction(${p.id})">
+                                <i class="bi bi-trash-fill fs-5"></i>
                             </button>
                         </div>
                     </div>`;

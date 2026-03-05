@@ -57,23 +57,18 @@ def extract_from_referral(pdf_path):
             config={'mime_type': mime_type} 
         )
 
-        # STRICTER PROMPT: Explicitly block random clinical notes like "flu"
         prompt = """
         You are an expert medical data extraction AI. Analyze the attached document.
         
         TASK:
-        Extract patient demographics, PRIMARY insurance, SECONDARY insurance, and critically, any handwritten PLAN TYPE.
+        Extract patient demographics, PRIMARY insurance, and SECONDARY insurance.
         
         GUIDELINES:
         1. **Primary vs Secondary**: Look for labels like "Primary Insurance" vs "Secondary Insurance". If not explicitly labeled, Medicare is usually Primary.
         2. **Member IDs**: Extract the "Subscriber ID" or "Member ID". Remove spaces/dashes.
         3. **Payer Names**: Extract the full insurance name (e.g. "Medicare Part B", "AARP UnitedHealthcare").
         4. **Date of Birth**: Format as MM/DD/YYYY.
-        5. **Handwritten Plan Type (STRICT)**: Look specifically for handwritten text indicating a Medicare plan type (e.g., "Plan F", "Plan G", "Plan N"). 
-           - YOU MUST ONLY extract text that actually represents an insurance plan. 
-           - DO NOT extract random handwritten notes, appointment types, or medical shorthand such as "flu", "f/u", or dollar amounts. 
-           - If the handwritten text is not clearly a valid plan type, leave the `plan_type` field as an empty string "".
-        6. **Missing Data**: If Secondary insurance is not found, leave those fields empty.
+        5. **Missing Data**: If Secondary insurance is not found, leave those fields empty. DO NOT extract handwriting.
 
         REQUIRED JSON STRUCTURE:
         {
@@ -81,7 +76,6 @@ def extract_from_referral(pdf_path):
             "first_name": "String",
             "last_name": "String",
             "dob": "MM/DD/YYYY",
-            "plan_type": "String (e.g., Plan F, Plan G - from handwritten notes. Leave empty if none found.)",
             "primary": {
                 "member_id": "String",
                 "payer_name": "String"
