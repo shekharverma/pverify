@@ -25,12 +25,10 @@ def clean_json_text(text):
     Removes Markdown code blocks.
     """
     try:
-        # 1. Remove Markdown code blocks
         if "```" in text:
             text = re.sub(r"```json\s*", "", text, flags=re.IGNORECASE)
             text = re.sub(r"```", "", text)
         
-        # 2. Find the first '{' and the last '}' (or brackets)
         match = re.search(r'(\{.*\}|\[.*\])', text, re.DOTALL)
         if match:
             text = match.group(0)
@@ -52,30 +50,30 @@ def extract_from_referral(pdf_path):
 
         logger.info(f"📤 Uploading file to Gemini: {os.path.basename(pdf_path)}")
         
-        # 1. Determine MIME type (Important for screenshots vs PDFs)
         mime_type = get_mime_type(pdf_path)
         
-        # 2. Upload with specific MIME type
         medical_doc = client.files.upload(
             file=pdf_path,
             config={'mime_type': mime_type} 
         )
 
-        # 3. Enhanced Prompt for Screenshots & OCR
+        # STRICTER PROMPT: Explicitly block random clinical notes like "flu"
         prompt = """
         You are an expert medical data extraction AI. Analyze the attached document.
         
         TASK:
-        Extract patient demographics, PRIMARY insurance, and SECONDARY insurance (if available).
+        Extract patient demographics, PRIMARY insurance, SECONDARY insurance, and critically, any handwritten PLAN TYPE.
         
         GUIDELINES:
-        1. **Primary vs Secondary**: 
-           - Look for labels like "Primary Insurance" vs "Secondary Insurance".
-           - If not explicitly labeled, Medicare is usually Primary.
+        1. **Primary vs Secondary**: Look for labels like "Primary Insurance" vs "Secondary Insurance". If not explicitly labeled, Medicare is usually Primary.
         2. **Member IDs**: Extract the "Subscriber ID" or "Member ID". Remove spaces/dashes.
         3. **Payer Names**: Extract the full insurance name (e.g. "Medicare Part B", "AARP UnitedHealthcare").
         4. **Date of Birth**: Format as MM/DD/YYYY.
-        5. **Missing Data**: If Secondary insurance is not found, leave those fields empty.
+        5. **Handwritten Plan Type (STRICT)**: Look specifically for handwritten text indicating a Medicare plan type (e.g., "Plan F", "Plan G", "Plan N"). 
+           - YOU MUST ONLY extract text that actually represents an insurance plan. 
+           - DO NOT extract random handwritten notes, appointment types, or medical shorthand such as "flu", "f/u", or dollar amounts. 
+           - If the handwritten text is not clearly a valid plan type, leave the `plan_type` field as an empty string "".
+        6. **Missing Data**: If Secondary insurance is not found, leave those fields empty.
 
         REQUIRED JSON STRUCTURE:
         {
@@ -83,6 +81,7 @@ def extract_from_referral(pdf_path):
             "first_name": "String",
             "last_name": "String",
             "dob": "MM/DD/YYYY",
+            "plan_type": "String (e.g., Plan F, Plan G - from handwritten notes. Leave empty if none found.)",
             "primary": {
                 "member_id": "String",
                 "payer_name": "String"
@@ -101,39 +100,25 @@ def extract_from_referral(pdf_path):
             contents=[medical_doc, prompt],
             config=types.GenerateContentConfig(
                 response_mime_type='application/json',
-                temperature=0.1 # Slight temperature helps with OCR ambiguity
+                temperature=0.1 
             )
         )
 
-        # 4. Clean up file resource
         try:
             client.files.delete(name=medical_doc.name)
         except Exception as e:
             logger.warning(f"Failed to delete remote file: {e}")
         
-        # 5. LOG RAW RESPONSE (Crucial for Debugging)
         logger.info(f"📝 Gemini Raw Response: {response.text}")
 
-        # 6. Clean and Parse
         cleaned_text = clean_json_text(response.text)
         
         try:
             data = json.loads(cleaned_text)
-            
-            # Validation Log
-            extracted = data.get("form_population_data", {})
-            if not extracted.get("member_id"):
-                logger.warning("⚠️ Gemini extracted JSON but 'member_id' is EMPTY.")
-            else:
-                logger.info(f"✅ Successfully extracted Member ID: {extracted.get('member_id')}")
-                
             return data
 
         except json.JSONDecodeError as je:
             logger.error(f"❌ JSON Decode Error: {je}")
-            logger.error(f"❌ Faulty JSON Text: {cleaned_text}")
-            
-            # Fallback: Try to fix single quotes
             try:
                 fixed_text = cleaned_text.replace("'", '"')
                 return json.loads(fixed_text)
@@ -143,6 +128,3 @@ def extract_from_referral(pdf_path):
     except Exception as e:
         logger.exception(f"🔥 Critical Extraction Failure: {str(e)}")
         return {"error": f"Extraction Failed: {str(e)}"}
-
-if __name__ == "__main__":
-    pass

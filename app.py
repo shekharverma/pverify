@@ -33,7 +33,6 @@ db.init_app(app)
 migrate = Migrate(app, db)
 os.makedirs('uploads', exist_ok=True)
 
-# Helper array to auto-flag standard add-on codes from the client's Replit
 KNOWN_ADD_ON_CODES = {'11103', '11105', '11107', '17003'}
 
 PVERIFY_CLIENT_ID = os.environ.get('PVERIFY_OAUTH_CLIENT_ID')
@@ -82,9 +81,18 @@ def perform_verification(payer_code, member_id, first, last, dob):
         if response.status_code == 200:
             api_data = response.json()
             if api_data.get("APIResponseCode") != "0": return {"success": False, "error": api_data.get("APIResponseMessage"), "raw_response": api_data}
+            
             plan_summary = api_data.get("PlanCoverageSummary") or {}
             p_type, p_name = plan_summary.get("PolicyType") or "", (plan_summary.get("PlanName") or "").upper()
             display_plan = "Plan G" if "PLAN G" in p_name else "Plan N" if "PLAN N" in p_name else f"MA {p_type}".strip() if "MEDICARE ADVANTAGE" in p_name else p_type
+            
+            # --- FIX: Stop generic PVerify Medicare text from showing up as a plan badge ---
+            if display_plan:
+                dp_lower = display_plan.lower()
+                if "medicare part a" in dp_lower or "medicare part b" in dp_lower or dp_lower == "medicare":
+                    display_plan = ""
+            # ------------------------------------------------------------------------------
+            
             copay, coins = "$0.00", "0%"
             for service in api_data.get("ServiceDetails") or []:
                 if service.get("ServiceName") == "Professional (Physician)":
@@ -104,7 +112,19 @@ def process_single_file(filepath, app_context_app, filename=None):
             extraction = extract_from_referral(filepath)
             root = extraction.get("form_population_data", {})
             p_data, s_data = root.get("primary", {}), root.get("secondary", {})
-            patient = Patient(first_name=root.get("first_name"), last_name=root.get("last_name"), dob=root.get("dob"), member_id=p_data.get("member_id"), payer_name=p_data.get("payer_name"), sec_member_id=s_data.get("member_id"), sec_payer_name=s_data.get("payer_name"))
+            
+            ai_plan_type = root.get("plan_type", "")
+            
+            patient = Patient(
+                first_name=root.get("first_name"), 
+                last_name=root.get("last_name"), 
+                dob=root.get("dob"), 
+                member_id=p_data.get("member_id"), 
+                payer_name=p_data.get("payer_name"), 
+                sec_member_id=s_data.get("member_id"), 
+                sec_payer_name=s_data.get("payer_name"),
+                plan_type=ai_plan_type 
+            )
             
             if filename: patient.file_path = filename
             patient.gemini_raw = json.dumps(extraction) 
@@ -114,7 +134,10 @@ def process_single_file(filepath, app_context_app, filename=None):
             if p_code:
                 res = perform_verification(p_code, patient.member_id, patient.first_name, patient.last_name, patient.dob)
                 if res["success"]:
-                    patient.status, patient.plan_type = "verified", res["plan_type"]
+                    patient.status = "verified"
+                    if not patient.plan_type:
+                        patient.plan_type = res["plan_type"]
+                        
                     patient.copay, patient.coins = res["benefits"]["copay"], res["benefits"]["coins"]
                     patient.deductible_rem, patient.oop_rem = res["benefits"]["deductible"], res["benefits"]["oop"]
                     raw_json = res.get("raw_response")
@@ -126,7 +149,8 @@ def process_single_file(filepath, app_context_app, filename=None):
                 if s_code:
                     res_s = perform_verification(s_code, patient.sec_member_id, patient.first_name, patient.last_name, patient.dob)
                     if res_s["success"]:
-                        if res_s["plan_type"]: patient.plan_type = f"{patient.plan_type} + {res_s['plan_type']}" if patient.plan_type else res_s['plan_type']
+                        if not patient.plan_type and res_s["plan_type"]: 
+                            patient.plan_type = res_s['plan_type']
                         patient.copay, patient.coins = res_s["benefits"]["copay"], res_s["benefits"]["coins"]
                         patient.deductible_rem, patient.oop_rem = res_s["benefits"]["deductible"], res_s["benefits"]["oop"]
                         raw_json = res_s.get("raw_response")
@@ -148,8 +172,8 @@ def upload_single():
         unique_name = f"{time.time()}_{secure_filename(f.filename)}"
         path = os.path.join(app.config['UPLOAD_FOLDER'], unique_name); f.save(path)
         res = process_single_file(path, app, filename=unique_name)
-        p = Patient.query.get(res["id"])
-        return jsonify({"success":True, "patient": {"id": p.id, "first_name": p.first_name, "last_name": p.last_name, "dob": p.dob, "payer_name": p.payer_name, "plan_type": p.plan_type, "status": p.status, "copay": p.copay, "coins": p.coins, "deductible_rem": p.deductible_rem, "oop_rem": p.oop_rem, "pverify_raw": res.get("pverify_raw"), "gemini_raw": res.get("gemini_raw"), "filename": unique_name, "status_flag": p.status, "in_queue": p.in_queue}})
+        p = db.session.get(Patient, res["id"])
+        return jsonify({"success":True, "patient": {"id": p.id, "first_name": p.first_name, "last_name": p.last_name, "dob": p.dob, "payer_name": p.payer_name, "sec_payer_name": p.sec_payer_name, "plan_type": p.plan_type, "status": p.status, "copay": p.copay, "coins": p.coins, "deductible_rem": p.deductible_rem, "oop_rem": p.oop_rem, "pverify_raw": res.get("pverify_raw"), "gemini_raw": res.get("gemini_raw"), "filename": unique_name, "status_flag": p.status, "in_queue": p.in_queue}})
     return jsonify({"success": False, "error": "No file"})
 
 @app.route('/batch-upload', methods=['POST'])
@@ -169,8 +193,8 @@ def batch_upload():
 def index():
     if not session.get('role'): return render_template("index.html")
     patients = Patient.query.order_by(Patient.created_at.desc()).all()
-    current_user = User.query.get(session.get('user_id'))
-    available_locs = Location.query.all() if session.get('role') == 'admin' else current_user.locations
+    current_user = db.session.get(User, session.get('user_id'))
+    available_locs = Location.query.all() if session.get('role') == 'admin' else (current_user.locations if current_user else [])
     return render_template("index.html", payers=load_payers(), patients=patients, current_user=current_user, available_locations=available_locs)
 
 @app.route('/login', methods=['POST'])
@@ -186,7 +210,7 @@ def login():
 def set_active_location():
     if not session.get('user_id'): return jsonify({"success": False})
     loc_id = request.json.get('location_id')
-    user = User.query.get(session['user_id'])
+    user = db.session.get(User, session['user_id'])
     if user:
         user.current_location_id = loc_id if loc_id else None
         db.session.commit()
@@ -203,9 +227,47 @@ def admin_dashboard():
 @app.route('/api/admin/location', methods=['POST'])
 def add_location():
     if session.get('role') != 'admin': return jsonify({"error": "Unauthorized"}), 403
-    name, address = request.form.get('name'), request.form.get('address')
-    if Location.query.filter_by(name=name).first(): return jsonify({"success": False, "error": "Location already exists"})
-    db.session.add(Location(name=name, address=address)); db.session.commit()
+    loc_id = request.form.get('location_id')
+    name = request.form.get('name')
+    address = request.form.get('address')
+    
+    if loc_id:
+        loc = db.session.get(Location, loc_id)
+        if not loc: return jsonify({"success": False, "error": "Location not found"})
+        existing = Location.query.filter_by(name=name).first()
+        if existing and str(existing.id) != str(loc_id): 
+            return jsonify({"success": False, "error": "Location already exists"})
+        loc.name = name
+        loc.address = address
+    else:
+        if Location.query.filter_by(name=name).first(): return jsonify({"success": False, "error": "Location already exists"})
+        db.session.add(Location(name=name, address=address))
+        
+    db.session.commit()
+    return jsonify({"success": True})
+
+@app.route('/api/admin/delete_location/<int:id>', methods=['POST'])
+def delete_location(id):
+    if session.get('role') != 'admin': 
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    loc = db.session.get(Location, id)
+    if not loc:
+        return jsonify({"success": False, "error": "Location not found"})
+
+    affected_users = User.query.filter_by(current_location_id=id).all()
+    
+    for user in affected_users:
+        remaining_locations = [l for l in user.locations if l.id != id]
+        if remaining_locations:
+            user.current_location_id = remaining_locations[0].id
+        else:
+            user.current_location_id = None
+
+    Pricing.query.filter_by(location_id=id).delete()
+    
+    db.session.delete(loc)
+    db.session.commit()
     return jsonify({"success": True})
 
 @app.route('/api/admin/user', methods=['POST'])
@@ -216,17 +278,17 @@ def manage_user():
     perm_string = ",".join(permissions)
 
     if user_id:
-        user = User.query.get(user_id)
+        user = db.session.get(User, user_id)
         if not user: return jsonify({"success": False, "error": "User not found"})
         user.name, user.role, user.access_code, user.permissions, user.locations = name, role, access_code, perm_string, []
         for lid in location_ids:
-            loc = Location.query.get(int(lid))
+            loc = db.session.get(Location, int(lid))
             if loc: user.locations.append(loc)
     else:
         if User.query.filter_by(access_code=access_code).first(): return jsonify({"success": False, "error": "PIN already in use"})
         new_user = User(name=name, role=role, access_code=access_code, permissions=perm_string)
         for lid in location_ids:
-            loc = Location.query.get(int(lid))
+            loc = db.session.get(Location, int(lid))
             if loc: new_user.locations.append(loc)
         db.session.add(new_user)
     db.session.commit(); return jsonify({"success": True})
@@ -234,7 +296,7 @@ def manage_user():
 @app.route('/api/admin/delete_user/<int:id>', methods=['POST'])
 def delete_user_admin(id):
     if session.get('role') != 'admin': return jsonify({"error": "Unauthorized"}), 403
-    u = User.query.get(id)
+    u = db.session.get(User, id)
     if u: db.session.delete(u); db.session.commit()
     return jsonify({"success": True})
 
@@ -254,7 +316,7 @@ def manual_add():
 
 @app.route('/delete-patient/<int:id>', methods=['POST'])
 def delete_patient(id):
-    p = Patient.query.get(id)
+    p = db.session.get(Patient, id)
     if p: db.session.delete(p); db.session.commit(); return jsonify({"success": True})
     return jsonify({"error": "Not found"}), 404
 
@@ -295,10 +357,10 @@ def encounter_queue():
     providers = User.query.filter_by(role='provider').all()
     current_date = datetime.now().strftime("%A, %B %d, %Y")
     
-    current_user = User.query.get(session['user_id'])
-    available_locs = Location.query.all() if session.get('role') == 'admin' else current_user.locations
+    current_user = db.session.get(User, session['user_id'])
+    available_locs = Location.query.all() if session.get('role') == 'admin' else (current_user.locations if current_user else [])
     
-    loc_id = current_user.current_location_id
+    loc_id = current_user.current_location_id if current_user else None
     for p in queue_patients:
         p.valid_codes = []
         if loc_id:
@@ -329,7 +391,7 @@ def api_queue_add():
 @app.route('/api/queue/remove/<int:id>', methods=['POST'])
 def api_queue_remove(id):
     if not session.get('role'): return jsonify({"error": "Unauthorized"}), 403
-    p = Patient.query.get(id)
+    p = db.session.get(Patient, id)
     if p:
         p.in_queue = False
         db.session.commit()
@@ -339,7 +401,7 @@ def api_queue_remove(id):
 def submit_encounter():
     if not session.get('role'): return jsonify({"error": "Unauthorized"}), 403
     data = request.json
-    p = Patient.query.get(data.get('patient_id'))
+    p = db.session.get(Patient, data.get('patient_id'))
     if p:
         p.encounter_status = 'submitted'
         p.encounter_total = data.get('total_cost', 0.0)
@@ -362,7 +424,7 @@ def ma_review():
 @app.route('/api/ma-review/complete/<int:patient_id>', methods=['POST'])
 def complete_review(patient_id):
     if session.get('role') != 'admin': return jsonify({"error": "Unauthorized"}), 403
-    p = Patient.query.get(patient_id)
+    p = db.session.get(Patient, patient_id)
     if p:
         p.encounter_status = 'reviewed'
         db.session.commit()
@@ -382,17 +444,12 @@ def checkout():
 def complete_checkout(patient_id):
     if not session.get('role'): return jsonify({"error": "Unauthorized"}), 403
     
-    # Grab the JSON data coming from the Modal
     data = request.json or {}
     
-    p = Patient.query.get(patient_id)
+    p = db.session.get(Patient, patient_id)
     if p:
         p.encounter_status = 'paid'
-        p.in_queue = False # Remove from active flows entirely
-        
-        # NOTE: If you add a `payment_data` column to your DB later, 
-        # you can save it like this: p.payment_data = json.dumps(data)
-        
+        p.in_queue = False
         db.session.commit()
         return jsonify({"success": True})
     
@@ -469,13 +526,13 @@ def calculate_visit():
     patient_id = data.get('patient_id')
     selected_codes = data.get('codes', [])
     
-    user = User.query.get(session['user_id'])
-    loc_id = user.current_location_id
+    user = db.session.get(User, session['user_id'])
+    loc_id = user.current_location_id if user else None
     
     if not loc_id:
         return jsonify({"error": "Provider Location Error: You must select a 'WORKING AT' facility location at the top of the screen before calculating pricing."}), 400
         
-    patient = Patient.query.get(patient_id)
+    patient = db.session.get(Patient, patient_id)
     if not patient: return jsonify({"error": "Patient not found"}), 404
     
     search_payers = [patient.payer_name] 
@@ -578,46 +635,6 @@ def calculate_visit():
         "total_cost": total_visit_cost,
         "patient_resp": round(patient_resp, 2)
     })
-# @app.route('/visit-calculator')
-# def visit_calculator():
-#     if not session.get('role'): return redirect(url_for('index'))
-    
-#     current_user = User.query.get(session['user_id'])
-#     available_locs = Location.query.all() if session.get('role') == 'admin' else current_user.locations
-    
-#     # We pass all active codes, patients, and payors to the frontend
-#     codes = MedicalCode.query.all()
-#     patients = Patient.query.order_by(Patient.first_name.asc()).all()
-    
-#     # Extract unique payor IDs from the Pricing table so the dropdown only shows payors with actual prices
-#     active_payor_ids = db.session.query(Pricing.payer_id).distinct().all()
-#     active_payors = [p[0] for p in active_payor_ids]
-    
-#     return render_template(
-#         "visit_calculator.html", 
-#         codes=codes, 
-#         patients=patients, 
-#         payors=active_payors,
-#         current_user=current_user,
-#         available_locations=available_locs
-#     )
-
-# @app.route('/api/calculator/prices')
-# def api_calculator_prices():
-#     if not session.get('role'): return jsonify({"error": "Unauthorized"}), 403
-    
-#     payer = request.args.get('payer')
-#     loc_id = request.args.get('loc_id')
-    
-#     if not payer or not loc_id:
-#         return jsonify({})
-        
-#     prices = Pricing.query.filter_by(payer_id=payer, location_id=loc_id).all()
-    
-#     # Return a dictionary of { "11301": 118.00, "99213": 127.00 }
-#     price_map = {p.medical_code.code: p.price for p in prices}
-#     return jsonify(price_map)
-
 
 from models import SavedVisit
 
@@ -628,8 +645,8 @@ def visit_calculator():
     perms = session.get('permissions') or ""
     if role != 'admin' and 'calculator' not in perms: return redirect(url_for('index')) 
     
-    current_user = User.query.get(session['user_id'])
-    available_locs = Location.query.all() if role == 'admin' else current_user.locations
+    current_user = db.session.get(User, session['user_id'])
+    available_locs = Location.query.all() if role == 'admin' else (current_user.locations if current_user else [])
     codes = MedicalCode.query.all()
     patients = Patient.query.order_by(Patient.first_name.asc()).all()
     

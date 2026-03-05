@@ -170,14 +170,24 @@
         <div class="tab-pane fade" id="tab-locations">
             <div class="d-flex justify-content-between mb-4">
                 <h2 class="text-white">Facility Locations</h2>
-                <button class="btn btn-light shadow-sm fw-bold" data-bs-toggle="modal" data-bs-target="#locModal"><i class="bi bi-plus-lg me-2"></i>Add Location</button>
+                <button class="btn btn-light shadow-sm fw-bold" onclick="openAddLocModal()"><i class="bi bi-plus-lg me-2"></i>Add Location</button>
             </div>
             <div class="row">
                 {% for loc in locations %}
-                <div class="col-md-4 mb-3">
+                <div class="col-md-4 mb-3" id="loc-card-{{ loc.id }}">
                     <div class="card-dark h-100 position-relative overflow-hidden">
                         <div style="width: 4px; height: 100%; background: #1f6feb; position: absolute; left: 0; top: 0;"></div>
-                        <h5 class="mb-1 text-white">{{ loc.name }}</h5>
+                        <div class="d-flex justify-content-between align-items-start">
+                            <h5 class="mb-1 text-white">{{ loc.name }}</h5>
+                            <div>
+                                <button class="btn btn-sm btn-outline-light border-0 p-1" onclick="editLocation({{ loc.id }}, '{{ loc.name | replace('\'', '\\\'') }}', '{{ loc.address | replace('\'', '\\\'') if loc.address else '' }}')">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger border-0 p-1" onclick="deleteLocation({{ loc.id }}, '{{ loc.name | replace('\'', '\\\'') }}')">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
                         <p class="text-secondary small">{{ loc.address or 'No address listed' }}</p>
                         <div class="mt-3">
                             <span class="badge bg-secondary">{{ loc.users|length }} Assigned Staff/Providers</span>
@@ -330,18 +340,19 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title fw-bold text-white">Add Facility Location</h5>
+                <h5 class="modal-title fw-bold text-white" id="locModalTitle">Add Facility Location</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <form id="locForm">
+                    <input type="hidden" name="location_id" id="locId">
                     <div class="mb-3">
                         <label class="text-white fw-bold">Location Name <span class="text-danger">*</span></label>
-                        <input type="text" name="name" class="form-control" placeholder="e.g. Main Clinic" required>
+                        <input type="text" name="name" id="locName" class="form-control" placeholder="e.g. Main Clinic" required>
                     </div>
                     <div class="mb-4">
                         <label class="text-white fw-bold">Address (Optional)</label>
-                        <input type="text" name="address" class="form-control" placeholder="e.g. 123 Main St, New York, NY">
+                        <input type="text" name="address" id="locAddress" class="form-control" placeholder="e.g. 123 Main St, New York, NY">
                     </div>
                     <button type="submit" class="btn btn-light w-100 py-3 fw-bold fs-6 text-dark shadow-sm">Save Location</button>
                 </form>
@@ -423,6 +434,22 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
     const userModal = new bootstrap.Modal(document.getElementById('userModal'));
+    const locModal = new bootstrap.Modal(document.getElementById('locModal'));
+
+    function openAddLocModal() {
+        document.getElementById('locForm').reset();
+        document.getElementById('locId').value = '';
+        document.getElementById('locModalTitle').innerText = 'Add Facility Location';
+        locModal.show();
+    }
+    
+    function editLocation(id, name, address) {
+        document.getElementById('locId').value = id;
+        document.getElementById('locName').value = name;
+        document.getElementById('locAddress').value = address || '';
+        document.getElementById('locModalTitle').innerText = 'Edit Facility Location';
+        locModal.show();
+    }
     
     function showNotification(message, type='success') {
         const container = document.getElementById('toastContainer');
@@ -533,6 +560,25 @@
         if(confirm('Are you sure you want to delete this user?')) {
             await fetch('/api/admin/delete_user/' + id, { method:'POST' });
             window.location.reload();
+        }
+    }
+    async function deleteLocation(id, name) {
+        if (confirm(`Are you sure you want to delete "${name}"? \n\nAny staff currently working here will be shifted to their next assigned location.`)) {
+            try {
+                const res = await fetch('/api/admin/delete_location/' + id, { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                    showNotification(`Location "${name}" deleted and staff reassigned.`);
+                    const card = document.getElementById('loc-card-' + id);
+                    if (card) card.remove();
+                    setTimeout(() => window.location.reload(), 1000);
+                } else {
+                    showNotification(data.error, 'danger');
+                }
+            } catch (e) {
+                console.error(e);
+                showNotification("System error deleting location.", "danger");
+            }
         }
     }
     

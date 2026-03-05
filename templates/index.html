@@ -204,8 +204,14 @@
                     <div class="col-dob text-white">{{ p.dob }}</div>
                     <div class="col-payer text-white" title="{{ p.payer_name }}">
                         <span class="text-truncate d-inline-block" style="max-width: 140px;">{{ p.payer_name }}</span>
-                        {% if p.plan_type %}
-                            <span class="badge rounded-pill bg-danger text-white ms-2" style="font-size: 0.65rem; padding: 4px 8px; background-color: #8b1a1a !important; opacity: 0.9;">{{ p.plan_type }}</span>
+                        {% if p.payer_name and 'medicare' in p.payer_name|lower %}
+                            {% if p.plan_type %}
+                                {% if 'plan' in p.plan_type|lower %}
+                                    <span class="badge rounded-pill text-white ms-2" style="font-size: 0.65rem; padding: 4px 8px; background-color: #8b1a1a !important; opacity: 0.9;">{{ p.plan_type }}</span>
+                                {% else %}
+                                    <span class="badge rounded-pill text-white ms-2" style="font-size: 0.65rem; padding: 4px 8px; background-color: #1f6feb !important; opacity: 0.9;">{{ p.plan_type }}</span>
+                                {% endif %}
+                            {% endif %}
                         {% endif %}
                     </div>
                     
@@ -516,6 +522,18 @@
                         ? `<button class="btn btn-sm btn-outline-secondary border-0 text-white" disabled title="In Queue"><i class="bi bi-person-check-fill fs-5"></i></button>`
                         : `<button class="btn btn-sm btn-outline-success border-0 text-success" onclick="addToQueue(${p.id})" title="Add to Encounter Queue"><i class="bi bi-person-plus-fill fs-5"></i></button>`;
     
+                    // UPDATE: Logic for Blue vs Red badges in JS upload
+                    let planBadgeHtml = '';
+                    if (p.payer_name && p.payer_name.toLowerCase().includes('medicare')) {
+                        if (p.plan_type) {
+                            if (p.plan_type.toLowerCase().includes('plan')) {
+                                planBadgeHtml = `<span class="badge rounded-pill text-white ms-2" style="font-size: 0.65rem; padding: 4px 8px; background-color: #8b1a1a !important;">${p.plan_type}</span>`;
+                            } else {
+                                planBadgeHtml = `<span class="badge rounded-pill text-white ms-2" style="font-size: 0.65rem; padding: 4px 8px; background-color: #1f6feb !important;">${p.plan_type}</span>`;
+                            }
+                        }
+                    }
+
                     const rowHtml = `
                     <div class="patient-row animate-row">
                         <div class="col-patient ps-2">
@@ -525,7 +543,7 @@
                         <div class="col-dob text-white">${p.dob || ''}</div>
                         <div class="col-payer text-white">
                             <span class="text-truncate d-inline-block" style="max-width: 140px;">${p.payer_name}</span>
-                            ${p.plan_type ? `<span class="badge rounded-pill bg-danger text-white ms-2" style="font-size: 0.65rem; padding: 4px 8px; background-color: #8b1a1a !important;">${p.plan_type}</span>` : ''}
+                            ${planBadgeHtml}
                         </div>
                         <div class="col-fin text-white" style="color: #3fb950 !important; font-weight: 700;">${p.copay}</div>
                         <div class="col-fin text-white" style="color: #f85149 !important; font-weight: 700;">${p.coins}</div>
