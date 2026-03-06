@@ -220,10 +220,7 @@
                                 {% endif %}
                             {% endif %}
                             
-                            <!-- {% if p.sec_status == 'None' %}
-                                <div class="text-muted mt-1" style="font-size: 0.7rem; font-style: italic; line-height: 1;">no supplemental data for this patient</div>
-                            {% endif %} -->
-                        {% endif %}
+                            {% endif %}
                     </div>
                     
                     <div class="col-fin text-white" style="color: #3fb950 !important; font-weight: 700;">{{ p.copay }}</div>
@@ -714,6 +711,17 @@
             }
         } catch(e) { console.error(e); }
     }
+
+    document.addEventListener("DOMContentLoaded", function() {
+        // Fix existing database records on load to show shortened "PLAN X" format
+        document.querySelectorAll('.col-payer .badge').forEach(badge => {
+            const text = badge.innerText.toUpperCase();
+            const match = text.match(/PLAN\s+(?:TYPE\s+)?([A-Z])\b/);
+            if (match) {
+                badge.innerText = `PLAN ${match[1]}`;
+            }
+        });
+    });
 </script>
 </body>
 </html>

@@ -88,8 +88,15 @@ def perform_verification(payer_code, member_id, first, last, dob):
             p_status = plan_summary.get("Status") or "Unknown"
             raw_plan_name = plan_summary.get("PlanName") or p_type
             
-            display_plan = "Plan G" if "PLAN G" in p_name else "Plan N" if "PLAN N" in p_name else f"MA {p_type}".strip() if "MEDICARE ADVANTAGE" in p_name else p_type
-            
+            # --- NEW DYNAMIC SHORTENING LOGIC ---
+            match = re.search(r'PLAN\s+(?:TYPE\s+)?([A-Z])\b', p_name)
+            if match:
+                display_plan = f"PLAN {match.group(1)}"
+            elif "MEDICARE ADVANTAGE" in p_name:
+                display_plan = f"MA {p_type}".strip()
+            else:
+                display_plan = p_type
+
             # Stricter filter to prevent "Medicare Part A" from showing up as a plan
             if display_plan:
                 dp_lower = display_plan.lower()
@@ -153,8 +160,8 @@ def process_single_file(filepath, app_context_app, filename=None):
                     if s_code:
                         res_s = perform_verification(s_code, patient.sec_member_id, patient.first_name, patient.last_name, patient.dob)
                         if res_s["success"]:
-                            # Pick full plan name and actual status tag from secondary Pverify ONLY
-                            patient.plan_type = res_s.get('raw_plan_name') or res_s.get('plan_type')
+                            # Pick shortened plan name and actual status tag from secondary Pverify ONLY
+                            patient.plan_type = res_s.get('plan_type') or res_s.get('raw_plan_name')
                             patient.sec_status = res_s.get('plan_status', 'Active')
                             
                             # Update SEC financials, do NOT overwrite the primary financials
